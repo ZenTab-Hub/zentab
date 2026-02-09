@@ -14,8 +14,10 @@ const TYPE_COLORS: Record<string, string> = {
   unknown: 'bg-muted text-muted-foreground',
 }
 
+const KEY_TYPES = ['string', 'hash', 'list', 'set', 'zset'] as const
+
 export const RedisKeyViewer = () => {
-  const { activeConnectionId, selectedDatabase, selectedCollection } = useConnectionStore()
+  const { activeConnectionId, selectedDatabase, selectedCollection, setSelectedCollection } = useConnectionStore()
   const tt = useToast()
   const [keyData, setKeyData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
@@ -28,6 +30,13 @@ export const RedisKeyViewer = () => {
   const [addField, setAddField] = useState('')
   const [addValue, setAddValue] = useState('')
   const [addScore, setAddScore] = useState('')
+  // Create new key state
+  const [creating, setCreating] = useState(false)
+  const [newKeyName, setNewKeyName] = useState('')
+  const [newKeyType, setNewKeyType] = useState<typeof KEY_TYPES[number]>('string')
+  const [newKeyValue, setNewKeyValue] = useState('')
+  const [newKeyTTL, setNewKeyTTL] = useState('')
+  const [creatingLoading, setCreatingLoading] = useState(false)
 
   // Load key value when selection changes
   useEffect(() => {
@@ -131,6 +140,37 @@ export const RedisKeyViewer = () => {
     })
   }
 
+  const handleCreateKey = async () => {
+    if (!activeConnectionId || !selectedDatabase) return
+    if (!newKeyName.trim()) { tt.error('Key name is required'); return }
+    try {
+      setCreatingLoading(true)
+      let value: any = newKeyValue
+      if (newKeyType === 'hash') {
+        try { value = newKeyValue ? JSON.parse(newKeyValue) : {} } catch { value = {} }
+      } else if (newKeyType === 'list' || newKeyType === 'set') {
+        try { value = newKeyValue ? JSON.parse(newKeyValue) : [] } catch { value = newKeyValue ? newKeyValue.split('\n').filter(Boolean) : [] }
+      } else if (newKeyType === 'zset') {
+        try { value = newKeyValue ? JSON.parse(newKeyValue) : [] } catch { value = [] }
+      }
+      const ttl = newKeyTTL ? parseInt(newKeyTTL) : undefined
+      const result = await databaseService.redisSetKey(activeConnectionId, selectedDatabase, newKeyName.trim(), value, newKeyType, ttl)
+      if (result.success) {
+        tt.success(`Key "${newKeyName.trim()}" created!`)
+        setCreating(false)
+        setNewKeyName(''); setNewKeyValue(''); setNewKeyTTL(''); setNewKeyType('string')
+        // Select the newly created key
+        setSelectedCollection(newKeyName.trim())
+      } else {
+        tt.error(result.error || 'Failed to create key')
+      }
+    } catch (error: any) {
+      tt.error('Create failed: ' + error.message)
+    } finally {
+      setCreatingLoading(false)
+    }
+  }
+
   const formatBytes = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -218,13 +258,81 @@ export const RedisKeyViewer = () => {
     return <pre className="text-[11px] font-mono">{JSON.stringify(value, null, 2)}</pre>
   }
 
+  // Create new key form (full page)
+  if (creating && !selectedCollection) {
+    return (
+      <div className="h-full flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-semibold">Create New Key</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">{selectedDatabase}</p>
+          </div>
+          <button onClick={() => setCreating(false)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium rounded-md border hover:bg-accent transition-colors">
+            <X className="h-3.5 w-3.5" /> Cancel
+          </button>
+        </div>
+        <div className="rounded-md border bg-card p-4 space-y-4">
+          {/* Key Name */}
+          <div>
+            <label className="text-[11px] font-medium text-muted-foreground mb-1.5 block">Key Name</label>
+            <input value={newKeyName} onChange={e => setNewKeyName(e.target.value)} placeholder="my:key:name"
+              className="w-full px-3 py-2 text-[12px] font-mono rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-primary" autoFocus />
+          </div>
+          {/* Key Type */}
+          <div>
+            <label className="text-[11px] font-medium text-muted-foreground mb-1.5 block">Type</label>
+            <div className="flex gap-1.5">
+              {KEY_TYPES.map(t => (
+                <button key={t} onClick={() => setNewKeyType(t)}
+                  className={`px-3 py-1.5 text-[11px] font-medium rounded-md border transition-colors ${newKeyType === t ? TYPE_COLORS[t] + ' border-current' : 'hover:bg-accent'}`}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Value */}
+          <div>
+            <label className="text-[11px] font-medium text-muted-foreground mb-1.5 block">
+              Value {newKeyType === 'hash' && <span className="text-muted-foreground/60">(JSON object, e.g. {`{"field":"value"}`})</span>}
+              {(newKeyType === 'list' || newKeyType === 'set') && <span className="text-muted-foreground/60">(JSON array or one item per line)</span>}
+              {newKeyType === 'zset' && <span className="text-muted-foreground/60">(JSON array: ["member", score, ...])</span>}
+            </label>
+            <textarea value={newKeyValue} onChange={e => setNewKeyValue(e.target.value)}
+              placeholder={newKeyType === 'string' ? 'Enter value...' : newKeyType === 'hash' ? '{"field1": "value1", "field2": "value2"}' : newKeyType === 'zset' ? '["member1", 1, "member2", 2]' : '["item1", "item2", "item3"]'}
+              className="w-full h-32 px-3 py-2 text-[12px] font-mono rounded-md border bg-background resize-y focus:outline-none focus:ring-1 focus:ring-primary" />
+          </div>
+          {/* TTL */}
+          <div>
+            <label className="text-[11px] font-medium text-muted-foreground mb-1.5 block">TTL (seconds) <span className="text-muted-foreground/60">— leave empty for no expiry</span></label>
+            <input value={newKeyTTL} onChange={e => setNewKeyTTL(e.target.value)} type="number" placeholder="No expiry"
+              className="w-40 px-3 py-2 text-[12px] font-mono rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-primary" />
+          </div>
+          {/* Submit */}
+          <div className="flex gap-2 pt-1">
+            <button onClick={handleCreateKey} disabled={creatingLoading || !newKeyName.trim()}
+              className="flex items-center gap-1.5 px-4 py-2 text-[12px] font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50">
+              <Plus className="h-3.5 w-3.5" /> {creatingLoading ? 'Creating...' : 'Create Key'}
+            </button>
+            <button onClick={() => setCreating(false)} className="px-4 py-2 text-[12px] font-medium rounded-md border hover:bg-accent transition-colors">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // Empty state - no key selected
   if (!selectedCollection) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-center">
           <Key className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-          <p className="text-xs text-muted-foreground">Select a key from the sidebar to view its value</p>
+          <p className="text-xs text-muted-foreground mb-3">Select a key from the sidebar to view its value</p>
+          <button onClick={() => setCreating(true)}
+            className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors mx-auto">
+            <Plus className="h-3.5 w-3.5" /> Create New Key
+          </button>
         </div>
       </div>
     )
@@ -241,6 +349,10 @@ export const RedisKeyViewer = () => {
           </p>
         </div>
         <div className="flex gap-1.5">
+          <button onClick={() => { setCreating(true); setSelectedCollection(null) }} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium rounded-md border border-primary/30 text-primary hover:bg-primary/10 transition-colors" title="Create new key">
+            <Plus className="h-3.5 w-3.5" />
+            New Key
+          </button>
           <button onClick={copyValue} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium rounded-md border hover:bg-accent transition-colors" title="Copy value">
             <Copy className="h-3.5 w-3.5" />
             Copy

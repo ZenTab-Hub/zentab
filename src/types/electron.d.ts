@@ -55,6 +55,15 @@ export interface ElectronAPI {
     addQueryHistory: (history: any) => Promise<any>
     getQueryHistory: () => Promise<any>
   }
+  security: {
+    setup2FA: () => Promise<{ success: boolean; secret?: string; uri?: string; qrDataUrl?: string; error?: string }>
+    verify2FA: (secret: string, token: string) => Promise<{ success: boolean; valid?: boolean; error?: string }>
+    enable2FA: (secret: string) => Promise<{ success: boolean; error?: string }>
+    disable2FA: () => Promise<{ success: boolean; error?: string }>
+    get2FAStatus: () => Promise<{ success: boolean; enabled?: boolean; hasSecret?: boolean; error?: string }>
+    getIdleTimeout: () => Promise<{ success: boolean; minutes: number }>
+    setIdleTimeout: (minutes: number) => Promise<{ success: boolean }>
+  }
 }
 
 declare global {

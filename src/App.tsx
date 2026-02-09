@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useCallback } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { ConnectionsPage } from '@/features/connections/pages/ConnectionsPage'
@@ -10,11 +10,21 @@ import { ImportExportPage } from '@/features/import-export/pages/ImportExportPag
 import { MonitoringPage } from '@/features/monitoring/pages/MonitoringPage'
 import { RedisToolsPage } from '@/features/redis-tools/pages/RedisToolsPage'
 import { useSettingsStore, resolveTheme, uiFontSizePx } from '@/store/settingsStore'
+import { useSecurityStore } from '@/store/securityStore'
+import { LockScreen } from '@/components/security/LockScreen'
 import { ToastProvider } from '@/components/common/Toast'
 
 function App() {
   const theme = useSettingsStore((s) => s.theme)
   const uiFontSize = useSettingsStore((s) => s.uiFontSize)
+  const { twoFAEnabled, isLocked, updateActivity, checkIdle, lock, setTwoFAEnabled } = useSecurityStore()
+
+  // Load 2FA status from backend on mount
+  useEffect(() => {
+    window.electronAPI.security.get2FAStatus().then((res) => {
+      if (res.success) setTwoFAEnabled(!!res.enabled)
+    })
+  }, [setTwoFAEnabled])
 
   // Sync theme class on <html> element
   useEffect(() => {
@@ -36,8 +46,34 @@ function App() {
     document.body.style.fontSize = uiFontSizePx(uiFontSize)
   }, [uiFontSize])
 
+  // Track user activity for idle lock
+  const handleActivity = useCallback(() => {
+    if (twoFAEnabled && !isLocked) {
+      updateActivity()
+    }
+  }, [twoFAEnabled, isLocked, updateActivity])
+
+  useEffect(() => {
+    if (!twoFAEnabled) return
+    const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click']
+    events.forEach((e) => window.addEventListener(e, handleActivity, { passive: true }))
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, handleActivity))
+    }
+  }, [twoFAEnabled, handleActivity])
+
+  // Check idle every 10 seconds
+  useEffect(() => {
+    if (!twoFAEnabled) return
+    const interval = setInterval(() => {
+      if (checkIdle()) lock()
+    }, 10_000)
+    return () => clearInterval(interval)
+  }, [twoFAEnabled, checkIdle, lock])
+
   return (
     <ToastProvider>
+      {twoFAEnabled && isLocked && <LockScreen />}
       <Router>
         <MainLayout>
           <Routes>

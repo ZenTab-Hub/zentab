@@ -229,6 +229,7 @@ class DatabaseService {
     if (dbType === 'postgresql') return postgresqlService.createTable(connectionId, database, name, options?.columns || [])
     if (dbType === 'mongodb') return mongodbService.createCollection(connectionId, database, name, options)
     if (dbType === 'kafka') return kafkaService.createTopic(connectionId, name, options?.numPartitions, options?.replicationFactor)
+    if (dbType === 'redis') return redisService.setKey(connectionId, database, name, options?.value ?? '', options?.keyType || 'string', options?.ttl)
     return { success: false, error: `Create collection not supported for ${dbType}` }
   }
 

@@ -224,6 +224,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveFavorite: (favorite: any) => ipcRenderer.invoke('storage:saveFavorite', favorite),
     getFavorites: () => ipcRenderer.invoke('storage:getFavorites'),
   },
+
+  // Security / 2FA operations
+  security: {
+    setup2FA: () => ipcRenderer.invoke('security:setup2FA'),
+    verify2FA: (secret: string, token: string) => ipcRenderer.invoke('security:verify2FA', secret, token),
+    enable2FA: (secret: string) => ipcRenderer.invoke('security:enable2FA', secret),
+    disable2FA: () => ipcRenderer.invoke('security:disable2FA'),
+    get2FAStatus: () => ipcRenderer.invoke('security:get2FAStatus'),
+    getIdleTimeout: () => ipcRenderer.invoke('security:getIdleTimeout'),
+    setIdleTimeout: (minutes: number) => ipcRenderer.invoke('security:setIdleTimeout', minutes),
+  },
 })
 
 // Type definitions for TypeScript
@@ -291,6 +302,15 @@ export interface ElectronAPI {
     getQueryHistory: (limit?: number) => Promise<any[]>
     saveFavorite: (favorite: any) => Promise<any>
     getFavorites: () => Promise<any[]>
+  }
+  security: {
+    setup2FA: () => Promise<{ success: boolean; secret?: string; uri?: string; qrDataUrl?: string; error?: string }>
+    verify2FA: (secret: string, token: string) => Promise<{ success: boolean; valid?: boolean; error?: string }>
+    enable2FA: (secret: string) => Promise<{ success: boolean; error?: string }>
+    disable2FA: () => Promise<{ success: boolean; error?: string }>
+    get2FAStatus: () => Promise<{ success: boolean; enabled?: boolean; hasSecret?: boolean; error?: string }>
+    getIdleTimeout: () => Promise<{ success: boolean; minutes: number }>
+    setIdleTimeout: (minutes: number) => Promise<{ success: boolean }>
   }
 }
 

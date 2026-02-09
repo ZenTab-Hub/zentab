@@ -121,7 +121,7 @@ export const DocumentTable = ({ documents, onEdit, onDelete, onSort, sortField, 
                   )}
                 </th>
               ))}
-              <th className="px-2 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase tracking-wider w-24">Actions</th>
+              <th className="px-2 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase tracking-wider w-24 sticky right-0 z-10 bg-muted/50 shadow-[-2px_0_4px_rgba(0,0,0,0.08)]">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -129,7 +129,7 @@ export const DocumentTable = ({ documents, onEdit, onDelete, onSort, sortField, 
               const rowKey = getRowKey(doc, index)
               const isExpanded = expandedRows.has(rowKey)
               return (
-                <tr key={rowKey} className={`hover:bg-muted/30 ${isExpanded ? 'bg-muted/10' : ''}`}>
+                <tr key={rowKey} className={`group/row hover:bg-muted/30 ${isExpanded ? 'bg-muted/10' : ''}`}>
                   <td className="px-2 py-1.5">
                     <button onClick={() => toggleRow(rowKey)} className="text-muted-foreground hover:text-primary">
                       {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
@@ -140,7 +140,7 @@ export const DocumentTable = ({ documents, onEdit, onDelete, onSort, sortField, 
                       {formatValue(doc[key])}
                     </td>
                   ))}
-                  <td className="px-2 py-1.5 text-right">
+                  <td className="px-2 py-1.5 text-right sticky right-0 z-10 bg-card shadow-[-2px_0_4px_rgba(0,0,0,0.08)] group-hover/row:bg-muted/30">
                     <div className="flex gap-0.5 justify-end">
                       <Button variant="ghost" size="icon" onClick={() => copyToClipboard(doc)} className="h-6 w-6"><Copy className="h-3 w-3" /></Button>
                       <Button variant="ghost" size="icon" onClick={() => onEdit(doc)} className="h-6 w-6"><Edit className="h-3 w-3" /></Button>

@@ -230,42 +230,48 @@ export const QueryEditorPage = () => {
   return (
     <div className="flex h-full flex-col">
       {/* Tab Bar */}
-      <div className="flex items-center border-b bg-muted/30 min-h-[34px]">
-        <div className="flex-1 flex items-center overflow-x-auto scrollbar-none">
-          {tabs.map(tab => (
-            <div
-              key={tab.id}
-              onClick={() => setActiveTabId(tab.id)}
-              onDoubleClick={() => { setRenamingTabId(tab.id); setRenameValue(tab.name) }}
-              className={`group flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium cursor-pointer border-r border-border/50 min-w-[100px] max-w-[180px] transition-colors ${
-                tab.id === activeTabId ? 'bg-background text-foreground border-b-2 border-b-primary' : 'text-muted-foreground hover:bg-background/50'
-              }`}
-            >
-              {renamingTabId === tab.id ? (
-                <input
-                  autoFocus
-                  value={renameValue}
-                  onChange={e => setRenameValue(e.target.value)}
-                  onBlur={() => { updateTab(tab.id, { name: renameValue || tab.name }); setRenamingTabId(null) }}
-                  onKeyDown={e => { if (e.key === 'Enter') { updateTab(tab.id, { name: renameValue || tab.name }); setRenamingTabId(null) } if (e.key === 'Escape') setRenamingTabId(null) }}
-                  className="bg-transparent border-b border-primary outline-none text-[11px] w-full"
-                  onClick={e => e.stopPropagation()}
-                />
-              ) : (
-                <>
-                  <span className="truncate">{tab.name}</span>
-                  {tab.loading && <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse shrink-0" />}
-                </>
-              )}
-              {tabs.length > 1 && (
-                <button onClick={e => closeTab(tab.id, e)} className="opacity-0 group-hover:opacity-100 shrink-0 hover:text-red-400 transition-opacity ml-auto">
-                  <X className="h-3 w-3" />
-                </button>
-              )}
-            </div>
-          ))}
+      <div className="flex items-center bg-[#1a1a2e] min-h-[36px] border-b border-border/60">
+        <div className="flex-1 flex items-center overflow-x-auto scrollbar-none gap-px pl-1 pt-1">
+          {tabs.map(tab => {
+            const isActive = tab.id === activeTabId
+            return (
+              <div
+                key={tab.id}
+                onClick={() => setActiveTabId(tab.id)}
+                onDoubleClick={() => { setRenamingTabId(tab.id); setRenameValue(tab.name) }}
+                className={`group relative flex items-center gap-1.5 px-3.5 py-[7px] text-[11px] font-medium cursor-pointer min-w-[110px] max-w-[200px] transition-all rounded-t-md ${
+                  isActive
+                    ? 'bg-background text-foreground shadow-[0_-1px_4px_rgba(0,0,0,0.15)] border border-border/60 border-b-transparent z-10'
+                    : 'text-muted-foreground/70 hover:text-muted-foreground hover:bg-muted/40'
+                }`}
+              >
+                {isActive && <span className="absolute top-0 left-2 right-2 h-[2px] bg-primary rounded-b" />}
+                {renamingTabId === tab.id ? (
+                  <input
+                    autoFocus
+                    value={renameValue}
+                    onChange={e => setRenameValue(e.target.value)}
+                    onBlur={() => { updateTab(tab.id, { name: renameValue || tab.name }); setRenamingTabId(null) }}
+                    onKeyDown={e => { if (e.key === 'Enter') { updateTab(tab.id, { name: renameValue || tab.name }); setRenamingTabId(null) } if (e.key === 'Escape') setRenamingTabId(null) }}
+                    className="bg-transparent border-b border-primary outline-none text-[11px] w-full"
+                    onClick={e => e.stopPropagation()}
+                  />
+                ) : (
+                  <>
+                    <span className="truncate">{tab.name}</span>
+                    {tab.loading && <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse shrink-0" />}
+                  </>
+                )}
+                {tabs.length > 1 && (
+                  <button onClick={e => closeTab(tab.id, e)} className="opacity-0 group-hover:opacity-100 shrink-0 hover:text-red-400 transition-opacity ml-auto">
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            )
+          })}
         </div>
-        <button onClick={addTab} className="px-2 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0" title="New Tab (⌘T)">
+        <button onClick={addTab} className="px-2.5 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0 mr-1" title="New Tab (⌘T)">
           <Plus className="h-3.5 w-3.5" />
         </button>
       </div>

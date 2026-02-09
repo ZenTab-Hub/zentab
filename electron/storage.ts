@@ -62,6 +62,11 @@ export const initStorage = () => {
       name TEXT NOT NULL,
       createdAt TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
   `)
 
   // Migration: add type and database columns if they don't exist
@@ -209,5 +214,22 @@ export const getQueryHistory = (limit = 50) => {
   const db = getStorage()
   const stmt = db.prepare('SELECT * FROM query_history ORDER BY executedAt DESC LIMIT ?')
   return stmt.all(limit)
+}
+
+// App settings (key-value store for 2FA, etc.)
+export const getAppSetting = (key: string): string | null => {
+  const db = getStorage()
+  const row = db.prepare('SELECT value FROM app_settings WHERE key = ?').get(key) as any
+  return row ? row.value : null
+}
+
+export const setAppSetting = (key: string, value: string) => {
+  const db = getStorage()
+  db.prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)').run(key, value)
+}
+
+export const deleteAppSetting = (key: string) => {
+  const db = getStorage()
+  db.prepare('DELETE FROM app_settings WHERE key = ?').run(key)
 }
 
