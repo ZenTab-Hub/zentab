@@ -1,5 +1,5 @@
 import { useState, useCallback, memo, startTransition } from 'react'
-import { X, Database, Server, HardDrive, Layers, Radio } from 'lucide-react'
+import { X, Database, Server, HardDrive, Layers, Radio, Shield } from 'lucide-react'
 import type { DatabaseType } from '@/types'
 
 /* ── Static class strings (no cn/twMerge at runtime) ─────────── */
@@ -76,6 +76,7 @@ Collapsible.displayName = 'Collapsible'
 
 /* ── Form data shape ──────────────────────────────────────────── */
 interface FormFields { name: string; host: string; port: string; username: string; password: string; database: string; authDatabase: string }
+interface SSHFields { enabled: boolean; host: string; port: string; username: string; password: string; privateKey: string }
 
 /* ── Main component ───────────────────────────────────────────── */
 interface ConnectionFormProps { onSubmit: (data: any) => void; onCancel: () => void; initialData?: any }
@@ -94,6 +95,19 @@ export const ConnectionForm = ({ onSubmit, onCancel, initialData }: ConnectionFo
     authDatabase: initialData?.authDatabase || '',
   }))
   const [nameError, setNameError] = useState('')
+  const [ssh, setSSH] = useState<SSHFields>(() => ({
+    enabled: initialData?.sshTunnel?.enabled || false,
+    host: initialData?.sshTunnel?.host || '',
+    port: initialData?.sshTunnel?.port ? String(initialData.sshTunnel.port) : '22',
+    username: initialData?.sshTunnel?.username || '',
+    password: initialData?.sshTunnel?.password || '',
+    privateKey: initialData?.sshTunnel?.privateKey || '',
+  }))
+  const [sshAuthMode, setSSHAuthMode] = useState<'password' | 'privateKey'>(initialData?.sshTunnel?.privateKey ? 'privateKey' : 'password')
+
+  const setSSHField = useCallback((key: keyof SSHFields, value: string | boolean) => {
+    setSSH(prev => prev[key] === value ? prev : { ...prev, [key]: value })
+  }, [])
 
   const cfg = DB_CONFIGS[dbType]
   const hasHostPort = dbType !== 'sqlite'
@@ -123,19 +137,21 @@ export const ConnectionForm = ({ onSubmit, onCancel, initialData }: ConnectionFo
     setFields(prev => prev[key] === value ? prev : { ...prev, [key]: value })
   }, [])
 
+  const sshData = ssh.enabled ? { sshEnabled: true, sshHost: ssh.host, sshPort: ssh.port, sshUsername: ssh.username, sshPassword: ssh.password, sshPrivateKey: ssh.privateKey } : { sshEnabled: false }
+
   const handleParamSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
     if (!fields.name.trim()) { setNameError('Name is required'); return }
     setNameError('')
-    onSubmit({ name: fields.name, type: dbType, host: fields.host, port: Number(fields.port) || cfg.defaultPort, username: fields.username, password: fields.password, database: fields.database, authDatabase: fields.authDatabase })
-  }, [fields, dbType, cfg.defaultPort, onSubmit])
+    onSubmit({ name: fields.name, type: dbType, host: fields.host, port: Number(fields.port) || cfg.defaultPort, username: fields.username, password: fields.password, database: fields.database, authDatabase: fields.authDatabase, ...sshData })
+  }, [fields, dbType, cfg.defaultPort, onSubmit, sshData])
 
   const handleConnStrSubmit = useCallback(() => {
     if (!fields.name.trim()) { setNameError('Name is required'); return }
     if (!connStr.trim()) return
     setNameError('')
-    onSubmit({ name: fields.name, type: dbType, host: '', port: cfg.defaultPort, connectionString: connStr })
-  }, [fields.name, connStr, dbType, cfg.defaultPort, onSubmit])
+    onSubmit({ name: fields.name, type: dbType, host: '', port: cfg.defaultPort, connectionString: connStr, ...sshData })
+  }, [fields.name, connStr, dbType, cfg.defaultPort, onSubmit, sshData])
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onCancel}>
@@ -236,6 +252,51 @@ export const ConnectionForm = ({ onSubmit, onCancel, initialData }: ConnectionFo
               </Collapsible>
             </form>
           )}
+
+          {/* SSH Tunnel Section */}
+          <div className="border-t border-border/50 pt-4">
+            <label className="flex items-center gap-2.5 cursor-pointer group">
+              <div className={`relative w-8 h-[18px] rounded-full transition-colors duration-200 ${ssh.enabled ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+                onClick={() => setSSHField('enabled', !ssh.enabled)}>
+                <div className={`absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow-sm transition-transform duration-200 ${ssh.enabled ? 'translate-x-[16px]' : 'translate-x-[2px]'}`} />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Shield className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium">SSH Tunnel</span>
+              </div>
+            </label>
+
+            <Collapsible open={ssh.enabled}>
+              <div className="mt-3 space-y-3 rounded-lg border border-border/50 bg-muted/20 p-3">
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="col-span-3">
+                    <label className={LABEL_CLS}>SSH Host</label>
+                    <input className={INPUT_CLS} placeholder="ssh.example.com" value={ssh.host} onChange={e => setSSHField('host', e.target.value)} />
+                  </div>
+                  <div>
+                    <label className={LABEL_CLS}>SSH Port</label>
+                    <input type="number" className={INPUT_CLS} placeholder="22" value={ssh.port} onChange={e => setSSHField('port', e.target.value)} />
+                  </div>
+                </div>
+                <div>
+                  <label className={LABEL_CLS}>SSH Username</label>
+                  <input className={INPUT_CLS} placeholder="ubuntu" value={ssh.username} onChange={e => setSSHField('username', e.target.value)} />
+                </div>
+                <div>
+                  <label className={LABEL_CLS}>Authentication</label>
+                  <div className="flex rounded-lg border bg-muted/30 p-0.5 mb-2">
+                    <button type="button" onClick={() => setSSHAuthMode('password')} className={sshAuthMode === 'password' ? TAB_ACTIVE : TAB_INACTIVE}>Password</button>
+                    <button type="button" onClick={() => setSSHAuthMode('privateKey')} className={sshAuthMode === 'privateKey' ? TAB_ACTIVE : TAB_INACTIVE}>Private Key</button>
+                  </div>
+                  {sshAuthMode === 'password' ? (
+                    <input type="password" className={INPUT_CLS} placeholder="••••••••" value={ssh.password} onChange={e => setSSHField('password', e.target.value)} />
+                  ) : (
+                    <textarea className={`${INPUT_CLS} h-20 resize-none font-mono text-[11px]`} placeholder="Paste private key here..." value={ssh.privateKey} onChange={e => setSSHField('privateKey', e.target.value)} />
+                  )}
+                </div>
+              </div>
+            </Collapsible>
+          </div>
         </div>
 
         {/* Footer */}

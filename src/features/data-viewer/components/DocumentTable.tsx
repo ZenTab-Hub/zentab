@@ -11,9 +11,11 @@ interface DocumentTableProps {
   onSort?: (field: string, direction: 1 | -1) => void
   sortField?: string
   sortDirection?: 1 | -1
+  selectedDocs?: Set<string>
+  onToggleSelect?: (rowKey: string, doc: any) => void
 }
 
-export const DocumentTable = ({ documents, onEdit, onDelete, onSort, sortField, sortDirection }: DocumentTableProps) => {
+export const DocumentTable = ({ documents, onEdit, onDelete, onSort, sortField, sortDirection, selectedDocs, onToggleSelect }: DocumentTableProps) => {
   const tt = useToast()
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({})
@@ -93,6 +95,7 @@ export const DocumentTable = ({ documents, onEdit, onDelete, onSort, sortField, 
         <table className="w-full">
           <thead className="bg-muted/50 border-b">
             <tr>
+              {onToggleSelect && <th className="px-2 py-2 text-center text-[10px] font-medium text-muted-foreground uppercase tracking-wider w-8">☐</th>}
               <th className="px-2 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider w-8" />
               {allKeys.map((key) => (
                 <th key={key} className="px-2 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
@@ -129,7 +132,13 @@ export const DocumentTable = ({ documents, onEdit, onDelete, onSort, sortField, 
               const rowKey = getRowKey(doc, index)
               const isExpanded = expandedRows.has(rowKey)
               return (
-                <tr key={rowKey} className={`group/row hover:bg-muted/30 ${isExpanded ? 'bg-muted/10' : ''}`}>
+                <tr key={rowKey} className={`group/row hover:bg-muted/30 ${isExpanded ? 'bg-muted/10' : ''} ${selectedDocs?.has(rowKey) ? 'bg-primary/5' : ''}`}>
+                  {onToggleSelect && (
+                    <td className="px-2 py-1.5 text-center">
+                      <input type="checkbox" checked={selectedDocs?.has(rowKey) || false} onChange={() => onToggleSelect(rowKey, doc)}
+                        className="h-3 w-3 rounded border-muted-foreground accent-primary cursor-pointer" />
+                    </td>
+                  )}
                   <td className="px-2 py-1.5">
                     <button onClick={() => toggleRow(rowKey)} className="text-muted-foreground hover:text-primary">
                       {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
@@ -156,7 +165,7 @@ export const DocumentTable = ({ documents, onEdit, onDelete, onSort, sortField, 
               if (!expandedRows.has(rowKey)) return null
               return (
                 <tr key={`${rowKey}-expanded`}>
-                  <td colSpan={allKeys.length + 2} className="px-4 py-2 bg-muted/20">
+                  <td colSpan={allKeys.length + (onToggleSelect ? 3 : 2)} className="px-4 py-2 bg-muted/20">
                     <pre className="overflow-x-auto text-[10px]">{formatJSON(doc)}</pre>
                   </td>
                 </tr>

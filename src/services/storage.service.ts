@@ -50,6 +50,19 @@ class StorageService {
   async getFavorites(): Promise<any[]> {
     return this.callElectronAPI('getFavorites')
   }
+
+  // Query Templates
+  async getQueryTemplates(): Promise<any[]> {
+    return this.callElectronAPI('getQueryTemplates')
+  }
+
+  async saveQueryTemplate(template: any): Promise<any> {
+    return this.callElectronAPI('saveQueryTemplate', template)
+  }
+
+  async deleteQueryTemplate(id: string): Promise<{ success: boolean }> {
+    return this.callElectronAPI('deleteQueryTemplate', id)
+  }
 }
 
 export const storageService = new StorageService()

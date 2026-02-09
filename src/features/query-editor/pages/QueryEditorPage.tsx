@@ -1,33 +1,16 @@
 import { useState, useCallback, useEffect } from 'react'
-import { Play, Save, History, BookOpen, X, Plus, FileSearch } from 'lucide-react'
+import { Play, Save, History, BookOpen, X, Plus, FileSearch, FileCode2 } from 'lucide-react'
 import { Input } from '@/components/common/Input'
 import { MonacoQueryEditor } from '../components/MonacoQueryEditor'
 import { QueryResults } from '../components/QueryResults'
 import { QueryHistory } from '../components/QueryHistory'
+import { QueryTemplates } from '../components/QueryTemplates'
 import { ExplainPlanTree } from '@/components/explain/ExplainPlanTree'
 import { useConnectionStore } from '@/store/connectionStore'
+import { useQueryTabStore } from '@/store/queryTabStore'
 import { databaseService } from '@/services/database.service'
 import { storageService } from '@/services/storage.service'
 import { useToast } from '@/components/common/Toast'
-
-interface QueryTab {
-  id: string
-  name: string
-  query: string
-  results: any[]
-  executionTime?: number
-  error?: string
-  loading: boolean
-  kafkaMode: 'consume' | 'produce'
-}
-
-let _tabCounter = 1
-
-const createTab = (dbType: string): QueryTab => {
-  const id = `tab-${Date.now()}-${_tabCounter++}`
-  const defaultQuery = dbType === 'kafka' ? '{"key": "", "value": ""}' : dbType === 'redis' ? 'PING' : dbType === 'postgresql' ? 'SELECT * FROM ' : '{}'
-  return { id, name: `Query ${_tabCounter - 1}`, query: defaultQuery, results: [], loading: false, kafkaMode: 'consume' }
-}
 
 export const QueryEditorPage = () => {
   const { activeConnectionId, selectedDatabase, selectedCollection, getActiveConnection } = useConnectionStore()
@@ -37,9 +20,16 @@ export const QueryEditorPage = () => {
   const isRedis = dbType === 'redis'
   const isKafka = dbType === 'kafka'
 
-  const [tabs, setTabs] = useState<QueryTab[]>(() => [createTab(dbType)])
-  const [activeTabId, setActiveTabId] = useState<string>(() => tabs[0]?.id || '')
+  const { tabs, activeTabId, addTab: storeAddTab, closeTab: storeCloseTab, setActiveTab, updateTab: storeUpdateTab } = useQueryTabStore()
+
+  // Ensure at least one tab exists (first mount or after clearing)
+  useEffect(() => {
+    if (tabs.length === 0) storeAddTab(dbType)
+  }, [tabs.length, dbType, storeAddTab])
   const [showHistory, setShowHistory] = useState(false)
+  const [showTemplates, setShowTemplates] = useState(false)
+  const [templateVarDialog, setTemplateVarDialog] = useState<{ query: string; variables: string[] } | null>(null)
+  const [templateVarValues, setTemplateVarValues] = useState<Record<string, string>>({})
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [queryName, setQueryName] = useState('')
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null)
@@ -92,25 +82,15 @@ export const QueryEditorPage = () => {
     fetchSchema()
   }, [activeConnectionId, selectedDatabase, selectedCollection, dbType])
 
-  const updateTab = useCallback((tabId: string, updates: Partial<QueryTab>) => {
-    setTabs(prev => prev.map(t => t.id === tabId ? { ...t, ...updates } : t))
-  }, [])
+  const updateTab = useCallback((tabId: string, updates: Partial<import('@/store/queryTabStore').QueryTab>) => {
+    storeUpdateTab(tabId, updates)
+  }, [storeUpdateTab])
 
-  const addTab = () => {
-    const newTab = createTab(dbType)
-    setTabs(prev => [...prev, newTab])
-    setActiveTabId(newTab.id)
-  }
+  const addTab = () => storeAddTab(dbType)
 
   const closeTab = (tabId: string, e?: React.MouseEvent) => {
     e?.stopPropagation()
-    if (tabs.length <= 1) return
-    const idx = tabs.findIndex(t => t.id === tabId)
-    const newTabs = tabs.filter(t => t.id !== tabId)
-    setTabs(newTabs)
-    if (activeTabId === tabId) {
-      setActiveTabId(newTabs[Math.min(idx, newTabs.length - 1)].id)
-    }
+    storeCloseTab(tabId)
   }
 
   const executeQuery = async () => {
@@ -184,6 +164,28 @@ export const QueryEditorPage = () => {
     setShowHistory(false)
   }
 
+  const handleSelectTemplate = (query: string, variables?: string[]) => {
+    if (!activeTab) return
+    if (variables && variables.length > 0) {
+      setTemplateVarDialog({ query, variables })
+      setTemplateVarValues(Object.fromEntries(variables.map(v => [v, ''])))
+    } else {
+      updateTab(activeTab.id, { query })
+      setShowTemplates(false)
+    }
+  }
+
+  const handleApplyTemplateVars = () => {
+    if (!activeTab || !templateVarDialog) return
+    let q = templateVarDialog.query
+    for (const [key, val] of Object.entries(templateVarValues)) {
+      q = q.replaceAll(`{{${key}}}`, val || `{{${key}}}`)
+    }
+    updateTab(activeTab.id, { query: q })
+    setTemplateVarDialog(null)
+    setShowTemplates(false)
+  }
+
   const handleExplain = async () => {
     if (!activeTab || !activeConnectionId || !selectedDatabase) {
       tt.warning('Please select a database first'); return
@@ -237,7 +239,7 @@ export const QueryEditorPage = () => {
             return (
               <div
                 key={tab.id}
-                onClick={() => setActiveTabId(tab.id)}
+                onClick={() => setActiveTab(tab.id)}
                 onDoubleClick={() => { setRenamingTabId(tab.id); setRenameValue(tab.name) }}
                 className={`group relative flex items-center gap-1.5 px-3.5 py-[7px] text-[11px] font-medium cursor-pointer min-w-[110px] max-w-[200px] transition-all rounded-t-md ${
                   isActive
@@ -291,7 +293,10 @@ export const QueryEditorPage = () => {
                 className={`px-2 py-1 text-[10px] font-medium ${activeTab.kafkaMode === 'produce' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}>Produce</button>
             </div>
           )}
-          <button onClick={() => setShowHistory(!showHistory)} className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border hover:bg-accent transition-colors">
+          <button onClick={() => { setShowTemplates(!showTemplates); setShowHistory(false) }} className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border hover:bg-accent transition-colors">
+            <FileCode2 className="h-3 w-3" /> Templates
+          </button>
+          <button onClick={() => { setShowHistory(!showHistory); setShowTemplates(false) }} className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border hover:bg-accent transition-colors">
             <History className="h-3 w-3" /> History
           </button>
           <button onClick={() => setShowSaveDialog(true)} className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border hover:bg-accent transition-colors">
@@ -343,6 +348,42 @@ export const QueryEditorPage = () => {
             <button onClick={() => setShowHistory(false)} className="p-1 rounded hover:bg-accent"><X className="h-3.5 w-3.5" /></button>
           </div>
           <div className="p-3"><QueryHistory onSelectQuery={handleSelectFromHistory} /></div>
+        </div>
+      )}
+
+      {/* Templates Sidebar */}
+      {showTemplates && (
+        <div className="fixed right-0 top-0 h-full w-80 bg-background border-l shadow-lg z-50 overflow-auto">
+          <div className="p-3 border-b flex items-center justify-between sticky top-0 bg-background">
+            <span className="text-xs font-semibold">Query Templates</span>
+            <button onClick={() => setShowTemplates(false)} className="p-1 rounded hover:bg-accent"><X className="h-3.5 w-3.5" /></button>
+          </div>
+          <div className="p-3">
+            <QueryTemplates onSelectTemplate={handleSelectTemplate} dbType={dbType} currentQuery={activeTab?.query} />
+          </div>
+        </div>
+      )}
+
+      {/* Template Variable Dialog */}
+      {templateVarDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+          <div className="bg-background rounded-lg p-5 w-96 border shadow-lg">
+            <h2 className="text-sm font-semibold mb-1">Fill Template Variables</h2>
+            <p className="text-[10px] text-muted-foreground mb-3">Replace placeholders with actual values</p>
+            <div className="space-y-2 mb-4 max-h-60 overflow-auto">
+              {templateVarDialog.variables.map(v => (
+                <div key={v}>
+                  <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">{`{{${v}}}`}</label>
+                  <input value={templateVarValues[v] || ''} onChange={e => setTemplateVarValues(prev => ({ ...prev, [v]: e.target.value }))}
+                    placeholder={v} className="w-full px-2 py-1.5 text-[11px] rounded-md border bg-muted/50 outline-none focus:ring-1 focus:ring-primary" />
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-1.5 justify-end">
+              <button onClick={() => setTemplateVarDialog(null)} className="px-3 py-1.5 text-[11px] font-medium rounded-md border hover:bg-accent">Cancel</button>
+              <button onClick={handleApplyTemplateVars} className="px-3 py-1.5 text-[11px] font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90">Apply</button>
+            </div>
+          </div>
         </div>
       )}
 

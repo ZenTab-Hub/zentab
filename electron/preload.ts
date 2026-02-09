@@ -13,8 +13,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // MongoDB operations (will be implemented)
   mongodb: {
-    connect: (connectionId: string, connectionString: string) =>
-      ipcRenderer.invoke('mongodb:connect', connectionId, connectionString),
+    connect: (connectionId: string, connectionString: string, sshTunnel?: any) =>
+      ipcRenderer.invoke('mongodb:connect', connectionId, connectionString, sshTunnel),
     disconnect: (connectionId: string) =>
       ipcRenderer.invoke('mongodb:disconnect', connectionId),
     listDatabases: (connectionId: string) =>
@@ -78,8 +78,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // PostgreSQL operations
   postgresql: {
-    connect: (connectionId: string, connectionString: string) =>
-      ipcRenderer.invoke('postgresql:connect', connectionId, connectionString),
+    connect: (connectionId: string, connectionString: string, sshTunnel?: any) =>
+      ipcRenderer.invoke('postgresql:connect', connectionId, connectionString, sshTunnel),
     disconnect: (connectionId: string) =>
       ipcRenderer.invoke('postgresql:disconnect', connectionId),
     listDatabases: (connectionId: string) =>
@@ -126,8 +126,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Redis operations
   redis: {
-    connect: (connectionId: string, connectionString: string) =>
-      ipcRenderer.invoke('redis:connect', connectionId, connectionString),
+    connect: (connectionId: string, connectionString: string, sshTunnel?: any) =>
+      ipcRenderer.invoke('redis:connect', connectionId, connectionString, sshTunnel),
     disconnect: (connectionId: string) =>
       ipcRenderer.invoke('redis:disconnect', connectionId),
     listDatabases: (connectionId: string) =>
@@ -186,8 +186,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Kafka operations
   kafka: {
-    connect: (connectionId: string, connectionString: string) =>
-      ipcRenderer.invoke('kafka:connect', connectionId, connectionString),
+    connect: (connectionId: string, connectionString: string, sshTunnel?: any) =>
+      ipcRenderer.invoke('kafka:connect', connectionId, connectionString, sshTunnel),
     disconnect: (connectionId: string) =>
       ipcRenderer.invoke('kafka:disconnect', connectionId),
     listTopics: (connectionId: string) =>
@@ -227,6 +227,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getQueryHistory: (limit?: number) => ipcRenderer.invoke('storage:getQueryHistory', limit),
     saveFavorite: (favorite: any) => ipcRenderer.invoke('storage:saveFavorite', favorite),
     getFavorites: () => ipcRenderer.invoke('storage:getFavorites'),
+    getQueryTemplates: () => ipcRenderer.invoke('storage:getQueryTemplates'),
+    saveQueryTemplate: (template: any) => ipcRenderer.invoke('storage:saveQueryTemplate', template),
+    deleteQueryTemplate: (id: string) => ipcRenderer.invoke('storage:deleteQueryTemplate', id),
   },
 
   // Security / 2FA operations
@@ -247,7 +250,7 @@ export interface ElectronAPI {
   getPath: (name: string) => Promise<string>
   ping: (connectionId: string, dbType: string) => Promise<{ success: boolean; error?: string }>
   mongodb: {
-    connect: (connectionId: string, connectionString: string) => Promise<any>
+    connect: (connectionId: string, connectionString: string, sshTunnel?: any) => Promise<any>
     disconnect: (connectionId: string) => Promise<void>
     listDatabases: (connectionId: string) => Promise<any[]>
     listCollections: (connectionId: string, dbName: string) => Promise<any[]>
@@ -257,7 +260,7 @@ export interface ElectronAPI {
     deleteDocument: (connectionId: string, dbName: string, collectionName: string, filter: any) => Promise<any>
   }
   postgresql: {
-    connect: (connectionId: string, connectionString: string) => Promise<any>
+    connect: (connectionId: string, connectionString: string, sshTunnel?: any) => Promise<any>
     disconnect: (connectionId: string) => Promise<void>
     listDatabases: (connectionId: string) => Promise<any>
     listTables: (connectionId: string, database: string) => Promise<any>
@@ -270,7 +273,7 @@ export interface ElectronAPI {
     getTableSchema: (connectionId: string, database: string, table: string) => Promise<any>
   }
   redis: {
-    connect: (connectionId: string, connectionString: string) => Promise<any>
+    connect: (connectionId: string, connectionString: string, sshTunnel?: any) => Promise<any>
     disconnect: (connectionId: string) => Promise<void>
     listDatabases: (connectionId: string) => Promise<any>
     listKeys: (connectionId: string, database: string, pattern: string, count: number) => Promise<any>
@@ -281,7 +284,7 @@ export interface ElectronAPI {
     getInfo: (connectionId: string) => Promise<any>
   }
   kafka: {
-    connect: (connectionId: string, connectionString: string) => Promise<any>
+    connect: (connectionId: string, connectionString: string, sshTunnel?: any) => Promise<any>
     disconnect: (connectionId: string) => Promise<any>
     listTopics: (connectionId: string) => Promise<any>
     getTopicMetadata: (connectionId: string, topic: string) => Promise<any>
@@ -307,6 +310,9 @@ export interface ElectronAPI {
     getQueryHistory: (limit?: number) => Promise<any[]>
     saveFavorite: (favorite: any) => Promise<any>
     getFavorites: () => Promise<any[]>
+    getQueryTemplates: () => Promise<any[]>
+    saveQueryTemplate: (template: any) => Promise<any>
+    deleteQueryTemplate: (id: string) => Promise<{ success: boolean }>
   }
   security: {
     setup2FA: () => Promise<{ success: boolean; secret?: string; uri?: string; qrDataUrl?: string; error?: string }>

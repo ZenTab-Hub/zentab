@@ -37,6 +37,7 @@ export default defineConfig({
                 'pg-connection-string',
                 'ioredis',
                 'kafkajs',
+                'ssh2',
                 'kerberos',
                 'snappy',
                 '@mongodb-js/zstd',

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { RefreshCw, Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Table, FileJson, GitBranch, Sparkles, Download, X, FileSpreadsheet } from 'lucide-react'
+import { RefreshCw, Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Table, FileJson, GitBranch, Sparkles, Download, X, FileSpreadsheet, GitCompareArrows } from 'lucide-react'
 import { Input } from '@/components/common/Input'
 import { DocumentTable } from '../components/DocumentTable'
+import { DiffViewer } from '../components/DiffViewer'
 import { RedisKeyViewer } from '../components/RedisKeyViewer'
 import { KafkaMessageViewer } from '../components/KafkaMessageViewer'
 import { JSONTreeView } from '@/components/common/JSONTreeView'
@@ -31,6 +32,9 @@ export const DataViewerPage = () => {
   const [naturalLanguageQuery, setNaturalLanguageQuery] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [goToPage, setGoToPage] = useState('')
+  const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set())
+  const [selectedDocsData, setSelectedDocsData] = useState<Map<string, any>>(new Map())
+  const [showDiff, setShowDiff] = useState(false)
 
   const activeConnection = getActiveConnection()
   const dbType = activeConnection?.type || 'mongodb'
@@ -110,6 +114,26 @@ export const DataViewerPage = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleToggleSelect = (rowKey: string, doc: any) => {
+    setSelectedDocs(prev => {
+      const next = new Set(prev)
+      if (next.has(rowKey)) {
+        next.delete(rowKey)
+        setSelectedDocsData(prevData => { const d = new Map(prevData); d.delete(rowKey); return d })
+      } else {
+        if (next.size >= 2) { tt.warning('Select at most 2 documents to compare'); return prev }
+        next.add(rowKey)
+        setSelectedDocsData(prevData => new Map(prevData).set(rowKey, doc))
+      }
+      return next
+    })
+  }
+
+  const handleCompare = () => {
+    if (selectedDocs.size !== 2) { tt.warning('Select exactly 2 documents to compare'); return }
+    setShowDiff(true)
   }
 
   const handleEdit = (doc: any) => {
@@ -311,6 +335,25 @@ export const DataViewerPage = () => {
           </p>
         </div>
         <div className="flex gap-1.5">
+          {selectedDocs.size > 0 && (
+            <button
+              onClick={handleCompare}
+              disabled={selectedDocs.size !== 2}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium rounded-md border bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+            >
+              <GitCompareArrows className="h-3.5 w-3.5" />
+              Compare ({selectedDocs.size}/2)
+            </button>
+          )}
+          {selectedDocs.size > 0 && (
+            <button
+              onClick={() => { setSelectedDocs(new Set()); setSelectedDocsData(new Map()) }}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium rounded-md border hover:bg-accent transition-colors text-muted-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+              Clear
+            </button>
+          )}
           <button
             onClick={handleInsert}
             className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium rounded-md border hover:bg-accent transition-colors"
@@ -493,6 +536,7 @@ export const DataViewerPage = () => {
           <DocumentTable documents={documents} onEdit={handleEdit} onDelete={handleDelete}
             sortField={sortField} sortDirection={sortDirection}
             onSort={(field, dir) => { setSortField(field); setSortDirection(dir); setSort({ [field]: dir }); setPage(0); setTimeout(() => loadDocuments(undefined, { sort: { [field]: dir } }), 0) }}
+            selectedDocs={selectedDocs} onToggleSelect={handleToggleSelect}
           />
         ) : viewMode === 'tree' ? (
           <div className="p-3">
@@ -556,6 +600,12 @@ export const DataViewerPage = () => {
           </div>
         </div>
       )}
+
+      {/* Diff Viewer Modal */}
+      {showDiff && selectedDocsData.size === 2 && (() => {
+        const docs = Array.from(selectedDocsData.values())
+        return <DiffViewer left={docs[0]} right={docs[1]} onClose={() => setShowDiff(false)} />
+      })()}
     </div>
   )
 }

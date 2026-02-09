@@ -18,11 +18,11 @@ class DatabaseService {
     return conn?.type || 'mongodb'
   }
 
-  async connect(connectionId: string, connectionString: string, type: DatabaseType): Promise<any> {
-    if (type === 'postgresql') return postgresqlService.connect(connectionId, connectionString)
-    if (type === 'redis') return redisService.connect(connectionId, connectionString)
-    if (type === 'kafka') return kafkaService.connect(connectionId, connectionString)
-    return mongodbService.connect(connectionId, connectionString)
+  async connect(connectionId: string, connectionString: string, type: DatabaseType, sshTunnel?: any): Promise<any> {
+    if (type === 'postgresql') return postgresqlService.connect(connectionId, connectionString, sshTunnel)
+    if (type === 'redis') return redisService.connect(connectionId, connectionString, sshTunnel)
+    if (type === 'kafka') return kafkaService.connect(connectionId, connectionString, sshTunnel)
+    return mongodbService.connect(connectionId, connectionString, sshTunnel)
   }
 
   async disconnect(connectionId: string, type?: DatabaseType): Promise<any> {

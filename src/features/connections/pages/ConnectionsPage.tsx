@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Download, Upload } from 'lucide-react'
 import { ConnectionForm } from '../components/ConnectionForm'
 import { ConnectionList } from '../components/ConnectionList'
 import { useConnectionStore } from '@/store/connectionStore'
@@ -46,6 +46,14 @@ export const ConnectionsPage = () => {
         authDatabase: data.authDatabase,
         database: data.database,
         connectionString: data.connectionString,
+        sshTunnel: data.sshEnabled ? {
+          enabled: true,
+          host: data.sshHost || '',
+          port: Number(data.sshPort) || 22,
+          username: data.sshUsername || '',
+          password: data.sshPassword || '',
+          privateKey: data.sshPrivateKey || '',
+        } : undefined,
         createdAt: editingConnection?.createdAt || new Date() as any,
         updatedAt: new Date() as any,
       }
@@ -117,8 +125,8 @@ export const ConnectionsPage = () => {
 
       const dbType = connection.type || 'mongodb'
 
-      // Connect via unified service
-      const result: any = await databaseService.connect(connection.id, connectionString, dbType)
+      // Connect via unified service (pass SSH tunnel config if present)
+      const result: any = await databaseService.connect(connection.id, connectionString, dbType, connection.sshTunnel)
 
       if (result.success) {
         setActiveConnection(connection.id)
@@ -168,6 +176,18 @@ export const ConnectionsPage = () => {
     setShowForm(true)
   }
 
+  const handleClone = (connection: DatabaseConnection) => {
+    const cloned: DatabaseConnection = {
+      ...connection,
+      id: Date.now().toString(),
+      name: `${connection.name} (Copy)`,
+      createdAt: new Date() as any,
+      updatedAt: new Date() as any,
+    }
+    setEditingConnection(cloned)
+    setShowForm(true)
+  }
+
   const handleDelete = (connectionId: string) => {
     t.confirm('Are you sure you want to delete this connection?', async () => {
       try {
@@ -186,6 +206,60 @@ export const ConnectionsPage = () => {
     setEditingConnection(null)
   }
 
+  const handleExport = async () => {
+    try {
+      if (connections.length === 0) { t.warning('No connections to export'); return }
+      const result = await window.electronAPI.dialog.showSaveDialog({
+        title: 'Export Connections',
+        defaultPath: `queryai-connections-${new Date().toISOString().slice(0, 10)}.json`,
+        filters: [{ name: 'JSON', extensions: ['json'] }],
+      })
+      if (result.canceled || !result.filePath) return
+      // Strip passwords for security — user can re-enter after import
+      const exportData = connections.map(({ id, name, type, host, port, username, database, authDatabase, connectionString, ssl, sshTunnel, createdAt, updatedAt }) => ({
+        id, name, type, host, port, username, database, authDatabase, connectionString, ssl,
+        sshTunnel: sshTunnel ? { ...sshTunnel, password: undefined, privateKey: undefined } : undefined,
+        createdAt, updatedAt,
+      }))
+      await window.electronAPI.fs.writeFile(result.filePath, JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), connections: exportData }, null, 2))
+      t.success(`Exported ${connections.length} connection(s)`)
+    } catch (error) {
+      t.error('Export failed: ' + (error as Error).message)
+    }
+  }
+
+  const handleImport = async () => {
+    try {
+      const result = await window.electronAPI.dialog.showOpenDialog({
+        title: 'Import Connections',
+        filters: [{ name: 'JSON', extensions: ['json'] }],
+        properties: ['openFile'],
+      })
+      if (result.canceled || !result.filePaths.length) return
+      const raw = await window.electronAPI.fs.readFile(result.filePaths[0])
+      const data = JSON.parse(raw)
+      const imported: any[] = data.connections || data
+      if (!Array.isArray(imported) || imported.length === 0) { t.warning('No valid connections found in file'); return }
+      let count = 0
+      for (const conn of imported) {
+        if (!conn.name || !conn.type) continue
+        const newConn: DatabaseConnection = {
+          ...conn,
+          id: Date.now().toString() + '-' + count,
+          password: conn.password || '',
+          createdAt: new Date() as any,
+          updatedAt: new Date() as any,
+        }
+        await storageService.saveConnection(newConn)
+        addConnection(newConn)
+        count++
+      }
+      t.success(`Imported ${count} connection(s)`)
+    } catch (error) {
+      t.error('Import failed: ' + (error as Error).message)
+    }
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* Page Header */}
@@ -194,14 +268,34 @@ export const ConnectionsPage = () => {
           <h1 className="text-lg font-semibold">Connections</h1>
           <p className="text-xs text-muted-foreground mt-0.5">Manage your database connections</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          New Connection
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleImport}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border hover:bg-accent transition-colors disabled:opacity-50"
+            title="Import connections from JSON"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            Import
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={loading || connections.length === 0}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border hover:bg-accent transition-colors disabled:opacity-50"
+            title="Export connections to JSON"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Export
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            New Connection
+          </button>
+        </div>
       </div>
 
       {loading && (
@@ -236,6 +330,7 @@ export const ConnectionsPage = () => {
           onDisconnect={handleDisconnect}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          onClone={handleClone}
           activeConnectionId={activeConnectionId || undefined}
         />
       )}

@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Trash2, Edit, Power, PowerOff, Database, Server, Layers } from 'lucide-react'
+import { Trash2, Edit, Power, PowerOff, Database, Server, Layers, Copy } from 'lucide-react'
 import { DatabaseIcon, getDatabaseTypeName, getDatabaseTypeColor } from '@/components/common/DatabaseIcon'
 import type { DatabaseConnection, DatabaseType } from '@/types'
 
@@ -16,17 +16,19 @@ interface ConnectionListProps {
   onDisconnect: (connectionId: string) => void
   onEdit: (connection: DatabaseConnection) => void
   onDelete: (connectionId: string) => void
+  onClone: (connection: DatabaseConnection) => void
   activeConnectionId?: string
 }
 
 /* ── Connection Card ───────────────────────────────────────────── */
-const ConnectionCard = ({ connection, isActive, onConnect, onDisconnect, onEdit, onDelete }: {
+const ConnectionCard = ({ connection, isActive, onConnect, onDisconnect, onEdit, onDelete, onClone }: {
   connection: DatabaseConnection
   isActive: boolean
   onConnect: (c: DatabaseConnection) => void
   onDisconnect: (id: string) => void
   onEdit: (c: DatabaseConnection) => void
   onDelete: (id: string) => void
+  onClone: (c: DatabaseConnection) => void
 }) => {
   const dbType = connection.type || 'mongodb'
   return (
@@ -86,6 +88,13 @@ const ConnectionCard = ({ connection, isActive, onConnect, onDisconnect, onEdit,
         )}
         <div className="flex-1" />
         <button
+          onClick={() => onClone(connection)}
+          className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100"
+          title="Clone"
+        >
+          <Copy className="h-3.5 w-3.5" />
+        </button>
+        <button
           onClick={() => onEdit(connection)}
           className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100"
           title="Edit"
@@ -112,6 +121,7 @@ export const ConnectionList = ({
   onDisconnect,
   onEdit,
   onDelete,
+  onClone,
   activeConnectionId,
 }: ConnectionListProps) => {
   const grouped = useMemo(() => {
@@ -149,6 +159,7 @@ export const ConnectionList = ({
                   onDisconnect={onDisconnect}
                   onEdit={onEdit}
                   onDelete={onDelete}
+                  onClone={onClone}
                 />
               ))}
             </div>

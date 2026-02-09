@@ -11,8 +11,8 @@ class RedisService {
     return (window.electronAPI as any).redis[method](...args)
   }
 
-  async connect(connectionId: string, connectionString: string): Promise<any> {
-    return this.callElectronAPI('connect', connectionId, connectionString)
+  async connect(connectionId: string, connectionString: string, sshTunnel?: any): Promise<any> {
+    return this.callElectronAPI('connect', connectionId, connectionString, sshTunnel)
   }
 
   async disconnect(connectionId: string): Promise<void> {

@@ -1,13 +1,14 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import fs from 'fs'
 import path from 'path'
-import { initStorage, migratePasswords, saveConnection, getConnections, deleteConnection, saveQuery, getSavedQueries, deleteSavedQuery, addQueryHistory, getQueryHistory, getAppSetting, setAppSetting, deleteAppSetting } from './storage'
+import { initStorage, migratePasswords, saveConnection, getConnections, deleteConnection, saveQuery, getSavedQueries, deleteSavedQuery, addQueryHistory, getQueryHistory, getAppSetting, setAppSetting, deleteAppSetting, getQueryTemplates, saveQueryTemplate, deleteQueryTemplate, seedBuiltInTemplates } from './storage'
 import * as OTPAuth from 'otpauth'
 import QRCode from 'qrcode'
 import { connectToMongoDB, disconnectFromMongoDB, pingMongoDB, listDatabases, listCollections, executeQuery, insertDocument, updateDocument, deleteDocument, aggregate, getCollectionStats, mongoCreateDatabase, mongoDropDatabase, mongoCreateCollection, mongoDropCollection, mongoRenameCollection, mongoListIndexes, mongoCreateIndex, mongoDropIndex, explainQuery, getServerStatus, disconnectAll as disconnectAllMongo } from './mongodb'
 import { connectToPostgreSQL, disconnectFromPostgreSQL, pingPostgreSQL, pgListDatabases, pgListTables, pgExecuteQuery, pgFindQuery, pgInsertDocument, pgUpdateDocument, pgDeleteDocument, pgAggregate, pgGetTableSchema, pgCreateDatabase, pgDropDatabase, pgCreateTable, pgDropTable, pgRenameTable, pgListIndexes, pgCreateIndex, pgDropIndex, pgExplainQuery, pgGetServerStats, disconnectAll as disconnectAllPg } from './postgresql'
 import { connectToRedis, disconnectFromRedis, pingRedis, redisListDatabases, redisListKeys, redisGetKeyValue, redisSetKey, redisDeleteKey, redisExecuteCommand, redisGetInfo, redisFlushDatabase, redisRenameKey, redisGetServerStats, redisGetSlowLog, redisGetClients, redisMemoryUsage, redisBulkDelete, redisBulkTTL, redisAddItem, redisRemoveItem, redisSubscribe, redisUnsubscribe, redisUnsubscribeAll, redisPublish, redisGetPubSubChannels, setPubSubMessageCallback, disconnectAll as disconnectAllRedis } from './redis'
 import { connectToKafka, disconnectFromKafka, pingKafka, kafkaListTopics, kafkaGetTopicMetadata, kafkaConsumeMessages, kafkaProduceMessage, kafkaCreateTopic, kafkaDeleteTopic, kafkaGetClusterInfo, disconnectAll as disconnectAllKafka } from './kafka'
+import { createSSHTunnel, closeSSHTunnel, closeAllSSHTunnels, type SSHTunnelConfig } from './ssh-tunnel'
 
 // Disable GPU acceleration for better compatibility
 app.disableHardwareAcceleration()
@@ -96,6 +97,7 @@ app.whenReady().then(() => {
   // Initialize storage & migrate plaintext passwords
   initStorage()
   migratePasswords()
+  seedBuiltInTemplates()
 
   createWindow()
 
@@ -120,6 +122,7 @@ app.on('before-quit', async () => {
     disconnectAllPg().catch(() => {}),
     disconnectAllRedis().catch(() => {}),
     disconnectAllKafka().catch(() => {}),
+    closeAllSSHTunnels().catch(() => {}),
   ])
   console.log('[App] All connections closed.')
 })
@@ -169,12 +172,64 @@ ipcMain.handle('storage:getQueryHistory', (_event, limit) => {
   return getQueryHistory(limit)
 })
 
+// Query Templates
+ipcMain.handle('storage:getQueryTemplates', () => {
+  return getQueryTemplates()
+})
+
+ipcMain.handle('storage:saveQueryTemplate', (_event, template) => {
+  return saveQueryTemplate(template)
+})
+
+ipcMain.handle('storage:deleteQueryTemplate', (_event, id) => {
+  deleteQueryTemplate(id)
+  return { success: true }
+})
+
+/**
+ * Helper: if SSH tunnel is enabled, create a tunnel and rewrite the connection string
+ * to route through localhost:<localPort> instead of the original host:port.
+ */
+async function applySSHTunnel(
+  connectionId: string,
+  connectionString: string,
+  sshTunnel?: { enabled: boolean; host: string; port: number; username: string; password?: string; privateKey?: string }
+): Promise<string> {
+  if (!sshTunnel?.enabled) return connectionString
+
+  // Parse host:port from the connection string
+  let targetHost = '127.0.0.1'
+  let targetPort = 27017
+  try {
+    const url = new URL(connectionString)
+    targetHost = url.hostname || '127.0.0.1'
+    targetPort = Number(url.port) || targetPort
+  } catch {
+    // For non-standard schemes (kafka://), do basic parsing
+    const m = connectionString.match(/:\/\/(?:[^@]+@)?([^/:]+)(?::(\d+))?/)
+    if (m) {
+      targetHost = m[1]
+      targetPort = m[2] ? Number(m[2]) : targetPort
+    }
+  }
+
+  const localPort = await createSSHTunnel(connectionId, sshTunnel, targetHost, targetPort)
+
+  // Replace host:port in the connection string with 127.0.0.1:localPort
+  return connectionString.replace(
+    /(:\/\/(?:[^@]+@)?)([^/:]+)(:\d+)?/,
+    `$1127.0.0.1:${localPort}`
+  )
+}
+
 // MongoDB IPC Handlers
-ipcMain.handle('mongodb:connect', async (_event, connectionId, connectionString) => {
-  return await connectToMongoDB(connectionId, connectionString)
+ipcMain.handle('mongodb:connect', async (_event, connectionId, connectionString, sshTunnel) => {
+  const finalConnStr = await applySSHTunnel(connectionId, connectionString, sshTunnel)
+  return await connectToMongoDB(connectionId, finalConnStr)
 })
 
 ipcMain.handle('mongodb:disconnect', async (_event, connectionId) => {
+  await closeSSHTunnel(connectionId)
   return await disconnectFromMongoDB(connectionId)
 })
 
@@ -250,11 +305,13 @@ ipcMain.handle('mongodb:getServerStatus', async (_event, connectionId) => {
 })
 
 // PostgreSQL IPC Handlers
-ipcMain.handle('postgresql:connect', async (_event, connectionId, connectionString) => {
-  return await connectToPostgreSQL(connectionId, connectionString)
+ipcMain.handle('postgresql:connect', async (_event, connectionId, connectionString, sshTunnel) => {
+  const finalConnStr = await applySSHTunnel(connectionId, connectionString, sshTunnel)
+  return await connectToPostgreSQL(connectionId, finalConnStr)
 })
 
 ipcMain.handle('postgresql:disconnect', async (_event, connectionId) => {
+  await closeSSHTunnel(connectionId)
   return await disconnectFromPostgreSQL(connectionId)
 })
 
@@ -334,11 +391,13 @@ ipcMain.handle('postgresql:getServerStats', async (_event, connectionId) => {
 })
 
 // Redis IPC Handlers
-ipcMain.handle('redis:connect', async (_event, connectionId, connectionString) => {
-  return await connectToRedis(connectionId, connectionString)
+ipcMain.handle('redis:connect', async (_event, connectionId, connectionString, sshTunnel) => {
+  const finalConnStr = await applySSHTunnel(connectionId, connectionString, sshTunnel)
+  return await connectToRedis(connectionId, finalConnStr)
 })
 
 ipcMain.handle('redis:disconnect', async (_event, connectionId) => {
+  await closeSSHTunnel(connectionId)
   return await disconnectFromRedis(connectionId)
 })
 
@@ -430,11 +489,13 @@ setPubSubMessageCallback((connectionId, channel, message) => {
 })
 
 // Kafka IPC Handlers
-ipcMain.handle('kafka:connect', async (_event, connectionId, connectionString) => {
-  return await connectToKafka(connectionId, connectionString)
+ipcMain.handle('kafka:connect', async (_event, connectionId, connectionString, sshTunnel) => {
+  const finalConnStr = await applySSHTunnel(connectionId, connectionString, sshTunnel)
+  return await connectToKafka(connectionId, finalConnStr)
 })
 
 ipcMain.handle('kafka:disconnect', async (_event, connectionId) => {
+  await closeSSHTunnel(connectionId)
   return await disconnectFromKafka(connectionId)
 })
 
