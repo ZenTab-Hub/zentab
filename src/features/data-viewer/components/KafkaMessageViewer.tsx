@@ -3,9 +3,11 @@ import { Radio, RefreshCw, Send, Copy, FileJson, Table, ChevronDown, ChevronRigh
 import { Input } from '@/components/common/Input'
 import { useConnectionStore } from '@/store/connectionStore'
 import { databaseService } from '@/services/database.service'
+import { useToast } from '@/components/common/Toast'
 
 export const KafkaMessageViewer = () => {
   const { activeConnectionId, selectedDatabase, selectedCollection } = useConnectionStore()
+  const tt = useToast()
   const [messages, setMessages] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [limit, setLimit] = useState(50)
@@ -36,7 +38,7 @@ export const KafkaMessageViewer = () => {
       }
     } catch (error: any) {
       console.error('Failed to consume messages:', error)
-      alert('Failed to consume: ' + error.message)
+      tt.error('Failed to consume: ' + error.message)
     } finally {
       setLoading(false)
     }
@@ -44,20 +46,20 @@ export const KafkaMessageViewer = () => {
 
   const handleProduce = async () => {
     if (!activeConnectionId || !selectedCollection) return
-    if (!produceValue.trim()) { alert('Message value is required'); return }
+    if (!produceValue.trim()) { tt.warning('Message value is required'); return }
     try {
       setProducing(true)
       const messages = [{ key: produceKey || undefined, value: produceValue }]
       const result = await databaseService.kafkaProduceMessage(activeConnectionId, selectedCollection, messages as any)
       if (result.success) {
-        alert('Message sent!')
+        tt.success('Message sent!')
         setProduceKey('')
         setProduceValue('')
         setShowProduce(false)
         await consumeMessages()
       }
     } catch (error: any) {
-      alert('Produce failed: ' + error.message)
+      tt.error('Produce failed: ' + error.message)
     } finally {
       setProducing(false)
     }

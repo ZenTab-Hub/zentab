@@ -3,6 +3,7 @@ import { Key, RefreshCw, Trash2, Clock, Copy, Edit, Save, X } from 'lucide-react
 import { Input } from '@/components/common/Input'
 import { useConnectionStore } from '@/store/connectionStore'
 import { databaseService } from '@/services/database.service'
+import { useToast } from '@/components/common/Toast'
 
 const TYPE_COLORS: Record<string, string> = {
   string: 'bg-green-500/15 text-green-400',
@@ -15,6 +16,7 @@ const TYPE_COLORS: Record<string, string> = {
 
 export const RedisKeyViewer = () => {
   const { activeConnectionId, selectedDatabase, selectedCollection } = useConnectionStore()
+  const tt = useToast()
   const [keyData, setKeyData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -68,22 +70,23 @@ export const RedisKeyViewer = () => {
       setEditing(false)
       await loadKeyValue()
     } catch (error: any) {
-      alert('Save failed: ' + error.message)
+      tt.error('Save failed: ' + error.message)
     } finally {
       setSaving(false)
     }
   }
 
-  const handleDelete = async () => {
-    if (!confirm(`Delete key "${selectedCollection}"?`)) return
-    if (!activeConnectionId || !selectedDatabase || !selectedCollection) return
-    try {
-      await databaseService.redisDeleteKey(activeConnectionId, selectedDatabase, selectedCollection)
-      alert('Key deleted!')
-      setKeyData(null)
-    } catch (error: any) {
-      alert('Delete failed: ' + error.message)
-    }
+  const handleDelete = () => {
+    tt.confirm(`Delete key "${selectedCollection}"?`, async () => {
+      if (!activeConnectionId || !selectedDatabase || !selectedCollection) return
+      try {
+        await databaseService.redisDeleteKey(activeConnectionId, selectedDatabase, selectedCollection)
+        tt.success('Key deleted!')
+        setKeyData(null)
+      } catch (error: any) {
+        tt.error('Delete failed: ' + error.message)
+      }
+    })
   }
 
   const copyValue = () => {

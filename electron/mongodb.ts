@@ -402,3 +402,53 @@ export const mongoDropIndex = async (connectionId: string, database: string, col
   }
 }
 
+export const explainQuery = async (
+  connectionId: string,
+  database: string,
+  collection: string,
+  filter: any = {}
+) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const db = connection.client.db(database)
+    const coll = db.collection(collection)
+
+    const explanation = await coll.find(filter).explain('executionStats')
+
+    return { success: true, explain: explanation }
+  } catch (error: any) {
+    console.error('Explain query error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export const getServerStatus = async (connectionId: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const admin = connection.client.db('admin')
+    const serverStatus = await admin.command({ serverStatus: 1 })
+
+    return {
+      success: true,
+      stats: {
+        host: serverStatus.host,
+        version: serverStatus.version,
+        uptime: serverStatus.uptime,
+        connections: serverStatus.connections,
+        opcounters: serverStatus.opcounters,
+        mem: serverStatus.mem,
+        network: serverStatus.network,
+        storageEngine: serverStatus.storageEngine?.name,
+        repl: serverStatus.repl ? { setName: serverStatus.repl.setName, ismaster: serverStatus.repl.ismaster } : null,
+      },
+    }
+  } catch (error: any) {
+    console.error('Server status error:', error)
+    return { success: false, error: error.message }
+  }
+}
+

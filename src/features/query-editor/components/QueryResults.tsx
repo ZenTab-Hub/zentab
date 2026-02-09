@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { Table, FileJson, Copy, Download } from 'lucide-react'
+import { Table, FileJson, Copy, Download, FileSpreadsheet, BarChart3 } from 'lucide-react'
 import { Button } from '@/components/common/Button'
 import { formatJSON } from '@/utils/formatters'
+import { useToast } from '@/components/common/Toast'
+import { ChartView } from '@/components/charts/ChartView'
 
 interface QueryResultsProps {
   results: any[]
@@ -9,9 +11,10 @@ interface QueryResultsProps {
   error?: string
 }
 
-type ViewMode = 'table' | 'json'
+type ViewMode = 'table' | 'json' | 'chart'
 
 export const QueryResults = ({ results, executionTime, error }: QueryResultsProps) => {
+  const tt = useToast()
   const [viewMode, setViewMode] = useState<ViewMode>('table')
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
 
@@ -27,17 +30,33 @@ export const QueryResults = ({ results, executionTime, error }: QueryResultsProp
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(JSON.stringify(results, null, 2))
-    alert('Copied to clipboard!')
+    tt.success('Copied to clipboard!')
   }
 
-  const downloadJSON = () => {
-    const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `query-results-${Date.now()}.json`
-    a.click()
-    URL.revokeObjectURL(url)
+  const downloadJSON = async () => {
+    const content = JSON.stringify(results, null, 2)
+    const res = await window.electronAPI.dialog.showSaveDialog({
+      defaultPath: `query-results-${Date.now()}.json`,
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    })
+    if (!res.canceled && res.filePath) {
+      await window.electronAPI.fs.writeFile(res.filePath, content)
+      tt.success('Exported as JSON')
+    }
+  }
+
+  const downloadCSV = async () => {
+    const keys = [...new Set(results.flatMap(d => Object.keys(d)))]
+    const esc = (v: any) => { const s = v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v); return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s }
+    const csv = [keys.join(','), ...results.map(row => keys.map(k => esc(row[k])).join(','))].join('\n')
+    const res = await window.electronAPI.dialog.showSaveDialog({
+      defaultPath: `query-results-${Date.now()}.csv`,
+      filters: [{ name: 'CSV', extensions: ['csv'] }],
+    })
+    if (!res.canceled && res.filePath) {
+      await window.electronAPI.fs.writeFile(res.filePath, csv)
+      tt.success('Exported as CSV')
+    }
   }
 
   if (error) {
@@ -92,18 +111,34 @@ export const QueryResults = ({ results, executionTime, error }: QueryResultsProp
             <FileJson className="mr-2 h-4 w-4" />
             JSON
           </Button>
+          <Button
+            variant={viewMode === 'chart' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('chart')}
+          >
+            <BarChart3 className="mr-2 h-4 w-4" />
+            Chart
+          </Button>
           <Button variant="outline" size="sm" onClick={copyToClipboard}>
             <Copy className="mr-2 h-4 w-4" />
             Copy
           </Button>
           <Button variant="outline" size="sm" onClick={downloadJSON}>
             <Download className="mr-2 h-4 w-4" />
-            Export
+            JSON
+          </Button>
+          <Button variant="outline" size="sm" onClick={downloadCSV}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            CSV
           </Button>
         </div>
       </div>
 
-      {viewMode === 'table' ? (
+      {viewMode === 'chart' ? (
+        <div className="rounded-lg border overflow-hidden" style={{ height: 350 }}>
+          <ChartView data={results} />
+        </div>
+      ) : viewMode === 'table' ? (
         <div className="rounded-lg border overflow-auto max-h-[500px]">
           <table className="w-full text-sm">
             <thead className="bg-muted sticky top-0">

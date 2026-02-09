@@ -147,6 +147,14 @@ class MongoDBService {
   ): Promise<any[]> {
     return this.callElectronAPI('listIndexes', connectionId, dbName, collectionName)
   }
+
+  async explainQuery(connectionId: string, database: string, collection: string, filter: any): Promise<any> {
+    return this.callElectronAPI('explainQuery', connectionId, database, collection, filter)
+  }
+
+  async getServerStatus(connectionId: string): Promise<any> {
+    return this.callElectronAPI('getServerStatus', connectionId)
+  }
 }
 
 export const mongodbService = new MongoDBService()

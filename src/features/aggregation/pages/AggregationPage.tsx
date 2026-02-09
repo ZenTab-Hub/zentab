@@ -4,6 +4,7 @@ import { PipelineStage } from '../components/PipelineStage'
 import { PipelinePreview } from '../components/PipelinePreview'
 import { useConnectionStore } from '@/store/connectionStore'
 import { databaseService } from '@/services/database.service'
+import { useToast } from '@/components/common/Toast'
 
 interface Stage {
   id: string
@@ -13,6 +14,7 @@ interface Stage {
 
 export const AggregationPage = () => {
   const { activeConnectionId, selectedDatabase, selectedCollection, getActiveConnection } = useConnectionStore()
+  const tt = useToast()
   const [stages, setStages] = useState<Stage[]>([
     { id: '1', type: '$match', content: '{}' },
   ])
@@ -61,7 +63,7 @@ export const AggregationPage = () => {
 
   const deleteStage = (id: string) => {
     if (stages.length === 1) {
-      alert('Pipeline must have at least one stage')
+      tt.warning('Pipeline must have at least one stage')
       return
     }
     setStages(stages.filter((stage) => stage.id !== id))
@@ -84,7 +86,7 @@ export const AggregationPage = () => {
 
   const runPipeline = async () => {
     if (!activeConnectionId || !selectedDatabase || !selectedCollection) {
-      alert('Please select a database and collection first')
+      tt.warning('Please select a database and collection first')
       return
     }
 

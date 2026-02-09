@@ -3,6 +3,7 @@ import { Clock, Trash2, Copy } from 'lucide-react'
 import { Button } from '@/components/common/Button'
 import { storageService } from '@/services/storage.service'
 import { formatDistanceToNow } from 'date-fns'
+import { useToast } from '@/components/common/Toast'
 
 interface QueryHistoryItem {
   id: string
@@ -19,6 +20,7 @@ interface QueryHistoryProps {
 }
 
 export const QueryHistory = ({ onSelectQuery }: QueryHistoryProps) => {
+  const tt = useToast()
   const [history, setHistory] = useState<QueryHistoryItem[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -38,20 +40,20 @@ export const QueryHistory = ({ onSelectQuery }: QueryHistoryProps) => {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Delete this query from history?')) {
+  const handleDelete = (id: string) => {
+    tt.confirm('Delete this query from history?', async () => {
       try {
         await storageService.deleteSavedQuery(id)
         setHistory(history.filter((item) => item.id !== id))
       } catch (error) {
         console.error('Failed to delete query:', error)
       }
-    }
+    })
   }
 
   const handleCopy = (query: string) => {
     navigator.clipboard.writeText(query)
-    alert('Query copied to clipboard!')
+    tt.success('Query copied to clipboard!')
   }
 
   if (loading) {

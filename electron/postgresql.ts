@@ -430,6 +430,67 @@ export const pgDropIndex = async (connectionId: string, _database: string, index
 }
 
 /* ── Helper: build WHERE clause from filter object ──────────── */
+
+export const pgExplainQuery = async (
+  connectionId: string,
+  _database: string,
+  _table: string,
+  query: string
+) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const explainQuery = `EXPLAIN (ANALYZE, FORMAT JSON) ${query}`
+    const result = await connection.pool.query(explainQuery)
+
+    return { success: true, explain: result.rows[0]['QUERY PLAN'] || result.rows }
+  } catch (error: any) {
+    console.error('PG explain query error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export const pgGetServerStats = async (connectionId: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const versionResult = await connection.pool.query('SELECT version()')
+    const activityResult = await connection.pool.query(`SELECT state, count(*) as count FROM pg_stat_activity GROUP BY state`)
+    const dbSizeResult = await connection.pool.query(`SELECT pg_database_size(current_database()) as size`)
+    const bgWriterResult = await connection.pool.query(`SELECT * FROM pg_stat_bgwriter`)
+    const dbStatsResult = await connection.pool.query(`SELECT * FROM pg_stat_database WHERE datname = current_database()`)
+
+    const connections_by_state: Record<string, number> = {}
+    activityResult.rows.forEach((r: any) => { connections_by_state[r.state || 'null'] = parseInt(r.count) })
+
+    const dbStats = dbStatsResult.rows[0] || {}
+
+    return {
+      success: true,
+      stats: {
+        version: versionResult.rows[0]?.version,
+        database_size: parseInt(dbSizeResult.rows[0]?.size || '0'),
+        connections: connections_by_state,
+        total_connections: Object.values(connections_by_state).reduce((a: number, b: number) => a + b, 0),
+        transactions: { committed: parseInt(dbStats.xact_commit || '0'), rolledBack: parseInt(dbStats.xact_rollback || '0') },
+        tuples: {
+          returned: parseInt(dbStats.tup_returned || '0'),
+          fetched: parseInt(dbStats.tup_fetched || '0'),
+          inserted: parseInt(dbStats.tup_inserted || '0'),
+          updated: parseInt(dbStats.tup_updated || '0'),
+          deleted: parseInt(dbStats.tup_deleted || '0'),
+        },
+        blocks: { read: parseInt(dbStats.blks_read || '0'), hit: parseInt(dbStats.blks_hit || '0') },
+        bgwriter: bgWriterResult.rows[0] || {},
+      },
+    }
+  } catch (error: any) {
+    console.error('PG server stats error:', error)
+    return { success: false, error: error.message }
+  }
+}
 function buildWhereClause(filter: any): { whereClause: string; values: any[] } {
   const keys = Object.keys(filter)
   if (keys.length === 0) return { whereClause: '', values: [] }

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { useSettingsStore, type ThemeMode, type FontSize } from '@/store/settingsStore'
 import { useAISettingsStore, type AIProvider } from '@/store/aiSettingsStore'
+import { useToast } from '@/components/common/Toast'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -163,6 +164,7 @@ function GeneralTab() {
 /* ─── AI Models Tab ─── */
 function AIModelsTab() {
   const { models, selectedModelId, addModel, deleteModel, selectModel } = useAISettingsStore()
+  const tt = useToast()
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ name: '', provider: 'deepseek' as AIProvider, apiKey: '', apiUrl: '', modelName: '' })
 
@@ -199,7 +201,7 @@ function AIModelsTab() {
                     className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${selectedModelId === m.id ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-accent text-foreground'}`}>
                     {selectedModelId === m.id ? 'Active' : 'Select'}
                   </button>
-                  <button onClick={() => { if (confirm('Delete this model?')) deleteModel(m.id) }}
+                  <button onClick={() => { tt.confirm('Delete this model?', () => deleteModel(m.id)) }}
                     className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
                     <Trash2 className="h-3 w-3" />
                   </button>
@@ -252,6 +254,7 @@ function AIModelsTab() {
 /* ─── About Tab ─── */
 function AboutTab() {
   const { resetSettings } = useSettingsStore()
+  const tt = useToast()
   return (
     <div>
       <div className={SECTION_CLS}>
@@ -264,7 +267,7 @@ function AboutTab() {
       </div>
       <div className={SECTION_CLS}>
         <h3 className={SECTION_TITLE_CLS}>Danger Zone</h3>
-        <button onClick={() => { if (confirm('Reset all settings to defaults?')) resetSettings() }}
+        <button onClick={() => { tt.confirm('Reset all settings to defaults?', () => resetSettings()) }}
           className="px-3 py-1.5 rounded-md text-xs font-medium border border-destructive/50 text-destructive hover:bg-destructive/10 transition-colors">
           Reset All Settings
         </button>

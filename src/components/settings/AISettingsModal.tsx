@@ -3,6 +3,7 @@ import { X, Plus, Trash2, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/common/Button'
 import { Input } from '@/components/common/Input'
 import { useAISettingsStore, type AIProvider } from '@/store/aiSettingsStore'
+import { useToast } from '@/components/common/Toast'
 
 interface AISettingsModalProps {
   isOpen: boolean
@@ -11,6 +12,7 @@ interface AISettingsModalProps {
 
 export const AISettingsModal = ({ isOpen, onClose }: AISettingsModalProps) => {
   const { models, selectedModelId, addModel, deleteModel, selectModel } = useAISettingsStore()
+  const tt = useToast()
   const [showAddForm, setShowAddForm] = useState(false)
   const [newModel, setNewModel] = useState({
     name: '',
@@ -24,7 +26,7 @@ export const AISettingsModal = ({ isOpen, onClose }: AISettingsModalProps) => {
 
   const handleAddModel = () => {
     if (!newModel.name || !newModel.apiKey) {
-      alert('Please fill in name and API key')
+      tt.warning('Please fill in name and API key')
       return
     }
 
@@ -120,9 +122,9 @@ export const AISettingsModal = ({ isOpen, onClose }: AISettingsModalProps) => {
                         size="sm"
                         variant="ghost"
                         onClick={() => {
-                          if (confirm('Delete this AI model?')) {
+                          tt.confirm('Delete this AI model?', () => {
                             deleteModel(model.id)
-                          }
+                          })
                         }}
                       >
                         <Trash2 className="h-4 w-4" />

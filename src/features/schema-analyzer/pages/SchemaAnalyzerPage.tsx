@@ -4,6 +4,7 @@ import { Input } from '@/components/common/Input'
 import { SchemaVisualization } from '../components/SchemaVisualization'
 import { useConnectionStore } from '@/store/connectionStore'
 import { databaseService } from '@/services/database.service'
+import { useToast } from '@/components/common/Toast'
 
 interface FieldInfo {
   name: string
@@ -16,6 +17,7 @@ interface FieldInfo {
 
 export const SchemaAnalyzerPage = () => {
   const { activeConnectionId, selectedDatabase, selectedCollection, getActiveConnection } = useConnectionStore()
+  const tt = useToast()
   const [schema, setSchema] = useState<{ [field: string]: FieldInfo } | null>(null)
   const [totalDocuments, setTotalDocuments] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -48,7 +50,7 @@ export const SchemaAnalyzerPage = () => {
 
   const analyzeSchema = async () => {
     if (!activeConnectionId || !selectedDatabase || !selectedCollection) {
-      alert('Please select a database and collection first')
+      tt.warning('Please select a database and collection first')
       return
     }
 
@@ -77,7 +79,7 @@ export const SchemaAnalyzerPage = () => {
 
       setSchema(schemaMap)
     } catch (error: any) {
-      alert('Failed to analyze schema: ' + error.message)
+      tt.error('Failed to analyze schema: ' + error.message)
     } finally {
       setLoading(false)
     }
@@ -135,7 +137,7 @@ export const SchemaAnalyzerPage = () => {
 
   const exportSchema = () => {
     if (!schema) {
-      alert('No schema to export. Please analyze first.')
+      tt.warning('No schema to export. Please analyze first.')
       return
     }
 

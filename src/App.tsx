@@ -7,7 +7,9 @@ import { DataViewerPage } from '@/features/data-viewer/pages/DataViewerPage'
 import { AggregationPage } from '@/features/aggregation/pages/AggregationPage'
 import { SchemaAnalyzerPage } from '@/features/schema-analyzer/pages/SchemaAnalyzerPage'
 import { ImportExportPage } from '@/features/import-export/pages/ImportExportPage'
+import { MonitoringPage } from '@/features/monitoring/pages/MonitoringPage'
 import { useSettingsStore, resolveTheme, uiFontSizePx } from '@/store/settingsStore'
+import { ToastProvider } from '@/components/common/Toast'
 
 function App() {
   const theme = useSettingsStore((s) => s.theme)
@@ -34,18 +36,21 @@ function App() {
   }, [uiFontSize])
 
   return (
-    <Router>
-      <MainLayout>
-        <Routes>
-          <Route path="/" element={<ConnectionsPage />} />
-          <Route path="/query-editor" element={<QueryEditorPage />} />
-          <Route path="/data-viewer" element={<DataViewerPage />} />
-          <Route path="/aggregation" element={<AggregationPage />} />
-          <Route path="/schema-analyzer" element={<SchemaAnalyzerPage />} />
-          <Route path="/import-export" element={<ImportExportPage />} />
-        </Routes>
-      </MainLayout>
-    </Router>
+    <ToastProvider>
+      <Router>
+        <MainLayout>
+          <Routes>
+            <Route path="/" element={<ConnectionsPage />} />
+            <Route path="/query-editor" element={<QueryEditorPage />} />
+            <Route path="/data-viewer" element={<DataViewerPage />} />
+            <Route path="/aggregation" element={<AggregationPage />} />
+            <Route path="/schema-analyzer" element={<SchemaAnalyzerPage />} />
+            <Route path="/import-export" element={<ImportExportPage />} />
+            <Route path="/monitoring" element={<MonitoringPage />} />
+          </Routes>
+        </MainLayout>
+      </Router>
+    </ToastProvider>
   )
 }
 

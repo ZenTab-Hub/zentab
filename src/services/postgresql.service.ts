@@ -125,6 +125,14 @@ class PostgreSQLService {
   async dropIndex(connectionId: string, database: string, indexName: string): Promise<any> {
     return this.callElectronAPI('dropIndex', connectionId, database, indexName)
   }
+
+  async explainQuery(connectionId: string, database: string, table: string, query: string): Promise<any> {
+    return this.callElectronAPI('explainQuery', connectionId, database, table, query)
+  }
+
+  async getServerStats(connectionId: string): Promise<any> {
+    return this.callElectronAPI('getServerStats', connectionId)
+  }
 }
 
 export const postgresqlService = new PostgreSQLService()

@@ -1,8 +1,9 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import fs from 'fs'
 import path from 'path'
 import { initStorage, saveConnection, getConnections, deleteConnection, saveQuery, getSavedQueries, deleteSavedQuery, addQueryHistory, getQueryHistory } from './storage'
-import { connectToMongoDB, disconnectFromMongoDB, listDatabases, listCollections, executeQuery, insertDocument, updateDocument, deleteDocument, aggregate, getCollectionStats, mongoCreateDatabase, mongoDropDatabase, mongoCreateCollection, mongoDropCollection, mongoRenameCollection, mongoListIndexes, mongoCreateIndex, mongoDropIndex } from './mongodb'
-import { connectToPostgreSQL, disconnectFromPostgreSQL, pgListDatabases, pgListTables, pgExecuteQuery, pgFindQuery, pgInsertDocument, pgUpdateDocument, pgDeleteDocument, pgAggregate, pgGetTableSchema, pgCreateDatabase, pgDropDatabase, pgCreateTable, pgDropTable, pgRenameTable, pgListIndexes, pgCreateIndex, pgDropIndex } from './postgresql'
+import { connectToMongoDB, disconnectFromMongoDB, listDatabases, listCollections, executeQuery, insertDocument, updateDocument, deleteDocument, aggregate, getCollectionStats, mongoCreateDatabase, mongoDropDatabase, mongoCreateCollection, mongoDropCollection, mongoRenameCollection, mongoListIndexes, mongoCreateIndex, mongoDropIndex, explainQuery, getServerStatus } from './mongodb'
+import { connectToPostgreSQL, disconnectFromPostgreSQL, pgListDatabases, pgListTables, pgExecuteQuery, pgFindQuery, pgInsertDocument, pgUpdateDocument, pgDeleteDocument, pgAggregate, pgGetTableSchema, pgCreateDatabase, pgDropDatabase, pgCreateTable, pgDropTable, pgRenameTable, pgListIndexes, pgCreateIndex, pgDropIndex, pgExplainQuery, pgGetServerStats } from './postgresql'
 import { connectToRedis, disconnectFromRedis, redisListDatabases, redisListKeys, redisGetKeyValue, redisSetKey, redisDeleteKey, redisExecuteCommand, redisGetInfo, redisFlushDatabase, redisRenameKey } from './redis'
 import { connectToKafka, disconnectFromKafka, kafkaListTopics, kafkaGetTopicMetadata, kafkaConsumeMessages, kafkaProduceMessage, kafkaCreateTopic, kafkaDeleteTopic, kafkaGetClusterInfo } from './kafka'
 
@@ -226,6 +227,12 @@ ipcMain.handle('mongodb:createIndex', async (_event, connectionId, database, col
 ipcMain.handle('mongodb:dropIndex', async (_event, connectionId, database, collection, indexName) => {
   return await mongoDropIndex(connectionId, database, collection, indexName)
 })
+ipcMain.handle('mongodb:explainQuery', async (_event, connectionId, database, collection, filter) => {
+  return await explainQuery(connectionId, database, collection, filter)
+})
+ipcMain.handle('mongodb:getServerStatus', async (_event, connectionId) => {
+  return await getServerStatus(connectionId)
+})
 
 // PostgreSQL IPC Handlers
 ipcMain.handle('postgresql:connect', async (_event, connectionId, connectionString) => {
@@ -303,6 +310,12 @@ ipcMain.handle('postgresql:createIndex', async (_event, connectionId, database, 
 
 ipcMain.handle('postgresql:dropIndex', async (_event, connectionId, database, indexName) => {
   return await pgDropIndex(connectionId, database, indexName)
+})
+ipcMain.handle('postgresql:explainQuery', async (_event, connectionId, database, table, query) => {
+  return await pgExplainQuery(connectionId, database, table, query)
+})
+ipcMain.handle('postgresql:getServerStats', async (_event, connectionId) => {
+  return await pgGetServerStats(connectionId)
 })
 
 // Redis IPC Handlers
@@ -386,6 +399,28 @@ ipcMain.handle('kafka:deleteTopic', async (_event, connectionId, topic) => {
 
 ipcMain.handle('kafka:getClusterInfo', async (_event, connectionId) => {
   return await kafkaGetClusterInfo(connectionId)
+})
+
+// File dialog IPC Handlers
+ipcMain.handle('dialog:showOpenDialog', async (_event, options) => {
+  const win = BrowserWindow.getFocusedWindow()
+  if (!win) return { canceled: true, filePaths: [] }
+  return await dialog.showOpenDialog(win, options)
+})
+
+ipcMain.handle('dialog:showSaveDialog', async (_event, options) => {
+  const win = BrowserWindow.getFocusedWindow()
+  if (!win) return { canceled: true, filePath: '' }
+  return await dialog.showSaveDialog(win, options)
+})
+
+ipcMain.handle('fs:readFile', async (_event, filePath: string) => {
+  return fs.readFileSync(filePath, 'utf-8')
+})
+
+ipcMain.handle('fs:writeFile', async (_event, filePath: string, data: string) => {
+  fs.writeFileSync(filePath, data, 'utf-8')
+  return { success: true }
 })
 
 // Handle uncaught exceptions

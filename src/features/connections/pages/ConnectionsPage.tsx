@@ -5,6 +5,7 @@ import { ConnectionList } from '../components/ConnectionList'
 import { useConnectionStore } from '@/store/connectionStore'
 import { storageService } from '@/services/storage.service'
 import { databaseService } from '@/services/database.service'
+import { useToast } from '@/components/common/Toast'
 import type { DatabaseConnection } from '@/types'
 
 export const ConnectionsPage = () => {
@@ -14,6 +15,7 @@ export const ConnectionsPage = () => {
 
   const { connections, setConnections, addConnection, updateConnection, deleteConnection, setActiveConnection, activeConnectionId } =
     useConnectionStore()
+  const t = useToast()
 
   // Load connections from storage on mount
   useEffect(() => {
@@ -64,7 +66,7 @@ export const ConnectionsPage = () => {
       setEditingConnection(null)
     } catch (error) {
       console.error('Failed to save connection:', error)
-      alert('Failed to save connection: ' + (error as Error).message)
+      t.error('Failed to save connection: ' + (error as Error).message)
     } finally {
       setLoading(false)
     }
@@ -120,7 +122,7 @@ export const ConnectionsPage = () => {
 
       if (result.success) {
         setActiveConnection(connection.id)
-        alert('Connected successfully!')
+        t.success('Connected successfully!')
 
         // Load databases
         const dbResult: any = await databaseService.listDatabases(connection.id, dbType)
@@ -128,11 +130,11 @@ export const ConnectionsPage = () => {
           console.log('Databases:', dbResult.databases)
         }
       } else {
-        alert('Connection failed: ' + result.error)
+        t.error('Connection failed: ' + result.error)
       }
     } catch (error) {
       console.error('Connection error:', error)
-      alert('Connection failed: ' + (error as Error).message)
+      t.error('Connection failed: ' + (error as Error).message)
     } finally {
       setLoading(false)
     }
@@ -149,13 +151,13 @@ export const ConnectionsPage = () => {
         if (activeConnectionId === connectionId) {
           setActiveConnection(null)
         }
-        alert('Disconnected successfully!')
+        t.success('Disconnected successfully!')
       } else {
-        alert('Disconnect failed: ' + (result?.error || 'Unknown error'))
+        t.error('Disconnect failed: ' + (result?.error || 'Unknown error'))
       }
     } catch (error) {
       console.error('Disconnect error:', error)
-      alert('Disconnect failed: ' + (error as Error).message)
+      t.error('Disconnect failed: ' + (error as Error).message)
     } finally {
       setLoading(false)
     }
@@ -166,16 +168,17 @@ export const ConnectionsPage = () => {
     setShowForm(true)
   }
 
-  const handleDelete = async (connectionId: string) => {
-    if (confirm('Are you sure you want to delete this connection?')) {
+  const handleDelete = (connectionId: string) => {
+    t.confirm('Are you sure you want to delete this connection?', async () => {
       try {
         await storageService.deleteConnection(connectionId)
         deleteConnection(connectionId)
+        t.success('Connection deleted')
       } catch (error) {
         console.error('Failed to delete connection:', error)
-        alert('Failed to delete connection')
+        t.error('Failed to delete connection')
       }
-    }
+    })
   }
 
   const handleCancel = () => {

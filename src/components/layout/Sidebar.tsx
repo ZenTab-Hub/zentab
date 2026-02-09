@@ -7,6 +7,7 @@ import {
   GitBranch,
   FileJson,
   Upload,
+  Activity,
   Settings,
   ChevronRight,
   ChevronDown,
@@ -41,6 +42,7 @@ const navigation = [
   { name: 'Aggregation', href: '/aggregation', icon: GitBranch },
   { name: 'Schema', href: '/schema-analyzer', icon: FileJson },
   { name: 'Import/Export', href: '/import-export', icon: Upload },
+  { name: 'Monitoring', href: '/monitoring', icon: Activity },
 ]
 
 export const Sidebar = () => {

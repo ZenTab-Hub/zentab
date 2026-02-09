@@ -7,99 +7,149 @@ interface MonacoQueryEditorProps {
   onChange: (value: string) => void
   height?: string
   readOnly?: boolean
+  language?: 'javascript' | 'sql' | 'redis'
+  schemaFields?: string[]
+  collectionNames?: string[]
 }
+
+// SQL keywords for PostgreSQL autocomplete
+const SQL_KEYWORDS = [
+  'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'IN', 'BETWEEN', 'LIKE', 'ILIKE',
+  'IS', 'NULL', 'AS', 'ON', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'FULL', 'CROSS',
+  'ORDER', 'BY', 'ASC', 'DESC', 'GROUP', 'HAVING', 'LIMIT', 'OFFSET', 'DISTINCT',
+  'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'CREATE', 'TABLE', 'DROP',
+  'ALTER', 'ADD', 'COLUMN', 'INDEX', 'PRIMARY', 'KEY', 'FOREIGN', 'REFERENCES',
+  'UNION', 'ALL', 'EXISTS', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'CAST',
+  'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'COALESCE', 'NULLIF', 'EXTRACT',
+  'TRUE', 'FALSE', 'RETURNING', 'WITH', 'RECURSIVE', 'EXPLAIN', 'ANALYZE',
+  'BEGIN', 'COMMIT', 'ROLLBACK', 'TRUNCATE', 'VACUUM', 'SERIAL', 'BIGSERIAL',
+  'INTEGER', 'BIGINT', 'SMALLINT', 'TEXT', 'VARCHAR', 'BOOLEAN', 'TIMESTAMP', 'DATE', 'JSONB', 'JSON', 'UUID',
+]
+
+// Redis commands
+const REDIS_COMMANDS = [
+  'PING', 'GET', 'SET', 'DEL', 'EXISTS', 'EXPIRE', 'TTL', 'KEYS', 'SCAN',
+  'HGET', 'HSET', 'HDEL', 'HGETALL', 'HMSET', 'HMGET', 'HKEYS', 'HVALS', 'HLEN',
+  'LPUSH', 'RPUSH', 'LPOP', 'RPOP', 'LRANGE', 'LLEN', 'LINDEX',
+  'SADD', 'SREM', 'SMEMBERS', 'SISMEMBER', 'SCARD', 'SUNION', 'SINTER',
+  'ZADD', 'ZREM', 'ZRANGE', 'ZRANGEBYSCORE', 'ZSCORE', 'ZCARD', 'ZRANK',
+  'INCR', 'DECR', 'INCRBY', 'DECRBY', 'APPEND', 'STRLEN', 'MGET', 'MSET',
+  'TYPE', 'RENAME', 'PERSIST', 'PEXPIRE', 'PTTL', 'DBSIZE', 'FLUSHDB', 'INFO', 'SELECT',
+]
+
+const schemaFieldsRef = { current: [] as string[] }
+const collectionNamesRef = { current: [] as string[] }
 
 export const MonacoQueryEditor = ({
   value,
   onChange,
   height = '400px',
   readOnly = false,
+  language = 'javascript',
+  schemaFields = [],
+  collectionNames = [],
 }: MonacoQueryEditorProps) => {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
 
-  const handleEditorDidMount = (editor: monaco.editor.IStandaloneCodeEditor, monaco: Monaco) => {
+  // Keep refs updated for completion provider
+  useEffect(() => {
+    schemaFieldsRef.current = schemaFields
+    collectionNamesRef.current = collectionNames
+  }, [schemaFields, collectionNames])
+
+  const handleEditorDidMount = (editor: monaco.editor.IStandaloneCodeEditor, monacoInstance: Monaco) => {
     editorRef.current = editor
 
-    // Configure MongoDB/JavaScript language features
-    monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+    monacoInstance.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
       noSemanticValidation: true,
       noSyntaxValidation: false,
     })
-
-    monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
-      target: monaco.languages.typescript.ScriptTarget.ES2020,
+    monacoInstance.languages.typescript.javascriptDefaults.setCompilerOptions({
+      target: monacoInstance.languages.typescript.ScriptTarget.ES2020,
       allowNonTsExtensions: true,
     })
 
-    // Add MongoDB-specific autocomplete suggestions
-    monaco.languages.registerCompletionItemProvider('javascript', {
+    // MongoDB + schema autocomplete
+    monacoInstance.languages.registerCompletionItemProvider('javascript', {
       provideCompletionItems: (model, position) => {
         const word = model.getWordUntilPosition(position)
-        const range = {
-          startLineNumber: position.lineNumber,
-          endLineNumber: position.lineNumber,
-          startColumn: word.startColumn,
-          endColumn: word.endColumn,
-        }
-
+        const range = { startLineNumber: position.lineNumber, endLineNumber: position.lineNumber, startColumn: word.startColumn, endColumn: word.endColumn }
         const suggestions: monaco.languages.CompletionItem[] = [
-          // Query operators
-          { label: '$eq', kind: monaco.languages.CompletionItemKind.Operator, insertText: '$eq', range },
-          { label: '$ne', kind: monaco.languages.CompletionItemKind.Operator, insertText: '$ne', range },
-          { label: '$gt', kind: monaco.languages.CompletionItemKind.Operator, insertText: '$gt', range },
-          { label: '$gte', kind: monaco.languages.CompletionItemKind.Operator, insertText: '$gte', range },
-          { label: '$lt', kind: monaco.languages.CompletionItemKind.Operator, insertText: '$lt', range },
-          { label: '$lte', kind: monaco.languages.CompletionItemKind.Operator, insertText: '$lte', range },
-          { label: '$in', kind: monaco.languages.CompletionItemKind.Operator, insertText: '$in', range },
-          { label: '$nin', kind: monaco.languages.CompletionItemKind.Operator, insertText: '$nin', range },
-          { label: '$and', kind: monaco.languages.CompletionItemKind.Operator, insertText: '$and', range },
-          { label: '$or', kind: monaco.languages.CompletionItemKind.Operator, insertText: '$or', range },
-          { label: '$not', kind: monaco.languages.CompletionItemKind.Operator, insertText: '$not', range },
-          { label: '$nor', kind: monaco.languages.CompletionItemKind.Operator, insertText: '$nor', range },
-          { label: '$exists', kind: monaco.languages.CompletionItemKind.Operator, insertText: '$exists', range },
-          { label: '$type', kind: monaco.languages.CompletionItemKind.Operator, insertText: '$type', range },
-          { label: '$regex', kind: monaco.languages.CompletionItemKind.Operator, insertText: '$regex', range },
-          { label: '$text', kind: monaco.languages.CompletionItemKind.Operator, insertText: '$text', range },
-          { label: '$where', kind: monaco.languages.CompletionItemKind.Operator, insertText: '$where', range },
-          
+          // MongoDB operators
+          ...['$eq','$ne','$gt','$gte','$lt','$lte','$in','$nin','$and','$or','$not','$nor','$exists','$type','$regex','$text','$where','$elemMatch','$size','$all'].map(op => ({
+            label: op, kind: monacoInstance.languages.CompletionItemKind.Operator, insertText: op, range, detail: 'MongoDB Operator',
+          })),
           // Aggregation stages
-          { label: '$match', kind: monaco.languages.CompletionItemKind.Function, insertText: '$match', range },
-          { label: '$group', kind: monaco.languages.CompletionItemKind.Function, insertText: '$group', range },
-          { label: '$project', kind: monaco.languages.CompletionItemKind.Function, insertText: '$project', range },
-          { label: '$sort', kind: monaco.languages.CompletionItemKind.Function, insertText: '$sort', range },
-          { label: '$limit', kind: monaco.languages.CompletionItemKind.Function, insertText: '$limit', range },
-          { label: '$skip', kind: monaco.languages.CompletionItemKind.Function, insertText: '$skip', range },
-          { label: '$unwind', kind: monaco.languages.CompletionItemKind.Function, insertText: '$unwind', range },
-          { label: '$lookup', kind: monaco.languages.CompletionItemKind.Function, insertText: '$lookup', range },
-          { label: '$addFields', kind: monaco.languages.CompletionItemKind.Function, insertText: '$addFields', range },
-          { label: '$count', kind: monaco.languages.CompletionItemKind.Function, insertText: '$count', range },
+          ...['$match','$group','$project','$sort','$limit','$skip','$unwind','$lookup','$addFields','$count','$facet','$bucket','$replaceRoot','$merge','$out','$set','$unset'].map(s => ({
+            label: s, kind: monacoInstance.languages.CompletionItemKind.Function, insertText: s, range, detail: 'Aggregation Stage',
+          })),
+          // Accumulator operators
+          ...['$sum','$avg','$min','$max','$first','$last','$push','$addToSet'].map(a => ({
+            label: a, kind: monacoInstance.languages.CompletionItemKind.Function, insertText: a, range, detail: 'Accumulator',
+          })),
+          // Schema fields
+          ...schemaFieldsRef.current.map(f => ({
+            label: f, kind: monacoInstance.languages.CompletionItemKind.Field, insertText: `"${f}"`, range, detail: 'Field',
+          })),
+          // Collection names
+          ...collectionNamesRef.current.map(c => ({
+            label: c, kind: monacoInstance.languages.CompletionItemKind.Module, insertText: c, range, detail: 'Collection',
+          })),
         ]
-
         return { suggestions }
       },
     })
 
-    // Focus editor
+    // SQL autocomplete
+    monacoInstance.languages.registerCompletionItemProvider('sql', {
+      provideCompletionItems: (model, position) => {
+        const word = model.getWordUntilPosition(position)
+        const range = { startLineNumber: position.lineNumber, endLineNumber: position.lineNumber, startColumn: word.startColumn, endColumn: word.endColumn }
+        const suggestions: monaco.languages.CompletionItem[] = [
+          ...SQL_KEYWORDS.map(kw => ({
+            label: kw, kind: monacoInstance.languages.CompletionItemKind.Keyword, insertText: kw, range, detail: 'SQL Keyword',
+          })),
+          ...schemaFieldsRef.current.map(f => ({
+            label: f, kind: monacoInstance.languages.CompletionItemKind.Field, insertText: `"${f}"`, range, detail: 'Column',
+          })),
+          ...collectionNamesRef.current.map(t => ({
+            label: t, kind: monacoInstance.languages.CompletionItemKind.Module, insertText: `"${t}"`, range, detail: 'Table',
+          })),
+        ]
+        return { suggestions }
+      },
+    })
+
+    // Redis autocomplete
+    monacoInstance.languages.registerCompletionItemProvider('plaintext', {
+      provideCompletionItems: (model, position) => {
+        const word = model.getWordUntilPosition(position)
+        const range = { startLineNumber: position.lineNumber, endLineNumber: position.lineNumber, startColumn: word.startColumn, endColumn: word.endColumn }
+        return {
+          suggestions: REDIS_COMMANDS.map(cmd => ({
+            label: cmd, kind: monacoInstance.languages.CompletionItemKind.Function, insertText: cmd, range, detail: 'Redis Command',
+          })),
+        }
+      },
+    })
+
     editor.focus()
   }
 
-  const handleChange = (value: string | undefined) => {
-    if (value !== undefined) {
-      onChange(value)
-    }
-  }
+  const monacoLang = language === 'sql' ? 'sql' : language === 'redis' ? 'plaintext' : 'javascript'
 
   return (
     <Editor
       height={height}
-      defaultLanguage="javascript"
+      defaultLanguage={monacoLang}
+      language={monacoLang}
       value={value}
-      onChange={handleChange}
+      onChange={v => v !== undefined && onChange(v)}
       onMount={handleEditorDidMount}
       theme="vs-dark"
       options={{
         minimap: { enabled: false },
-        fontSize: 14,
+        fontSize: 13,
         lineNumbers: 'on',
         roundedSelection: false,
         scrollBeyondLastLine: false,

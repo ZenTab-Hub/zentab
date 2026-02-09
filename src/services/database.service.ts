@@ -270,6 +270,20 @@ class DatabaseService {
     if (dbType === 'mongodb') return mongodbService.dropIndex(connectionId, database, collection, indexName)
     return { success: false, error: `Index management not supported for ${dbType}` }
   }
+
+  async explainQuery(connectionId: string, database: string, collection: string, queryOrFilter: any, type?: string): Promise<any> {
+    const dbType = type || this.getActiveType()
+    if (dbType === 'postgresql') return postgresqlService.explainQuery(connectionId, database, collection, queryOrFilter)
+    if (dbType === 'mongodb') return mongodbService.explainQuery(connectionId, database, collection, queryOrFilter)
+    return { success: false, error: 'Explain not supported for this database type' }
+  }
+
+  async getServerStats(connectionId: string, type?: string): Promise<any> {
+    const dbType = type || this.getActiveType()
+    if (dbType === 'postgresql') return postgresqlService.getServerStats(connectionId)
+    if (dbType === 'mongodb') return mongodbService.getServerStatus(connectionId)
+    return { success: false, error: 'Server monitoring not supported for this database type' }
+  }
 }
 
 export const databaseService = new DatabaseService()

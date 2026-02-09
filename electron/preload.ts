@@ -66,6 +66,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('mongodb:createIndex', connectionId, database, collection, keys, options),
     dropIndex: (connectionId: string, database: string, collection: string, indexName: string) =>
       ipcRenderer.invoke('mongodb:dropIndex', connectionId, database, collection, indexName),
+    explainQuery: (connectionId: string, database: string, collection: string, filter: any) =>
+      ipcRenderer.invoke('mongodb:explainQuery', connectionId, database, collection, filter),
+    getServerStatus: (connectionId: string) =>
+      ipcRenderer.invoke('mongodb:getServerStatus', connectionId),
   },
 
   // PostgreSQL operations
@@ -110,6 +114,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('postgresql:createIndex', connectionId, database, table, indexName, columns, options),
     dropIndex: (connectionId: string, database: string, indexName: string) =>
       ipcRenderer.invoke('postgresql:dropIndex', connectionId, database, indexName),
+    explainQuery: (connectionId: string, database: string, table: string, query: string) =>
+      ipcRenderer.invoke('postgresql:explainQuery', connectionId, database, table, query),
+    getServerStats: (connectionId: string) =>
+      ipcRenderer.invoke('postgresql:getServerStats', connectionId),
   },
 
   // Redis operations
@@ -159,6 +167,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('kafka:deleteTopic', connectionId, topic),
     getClusterInfo: (connectionId: string) =>
       ipcRenderer.invoke('kafka:getClusterInfo', connectionId),
+  },
+
+  // File dialog operations
+  dialog: {
+    showOpenDialog: (options: any) => ipcRenderer.invoke('dialog:showOpenDialog', options),
+    showSaveDialog: (options: any) => ipcRenderer.invoke('dialog:showSaveDialog', options),
+  },
+  fs: {
+    readFile: (filePath: string) => ipcRenderer.invoke('fs:readFile', filePath),
+    writeFile: (filePath: string, data: string) => ipcRenderer.invoke('fs:writeFile', filePath, data),
   },
 
   // Storage operations (SQLite for local data)
@@ -223,6 +241,14 @@ export interface ElectronAPI {
     createTopic: (connectionId: string, topic: string, numPartitions: number, replicationFactor: number) => Promise<any>
     deleteTopic: (connectionId: string, topic: string) => Promise<any>
     getClusterInfo: (connectionId: string) => Promise<any>
+  }
+  dialog: {
+    showOpenDialog: (options: any) => Promise<{ canceled: boolean; filePaths: string[] }>
+    showSaveDialog: (options: any) => Promise<{ canceled: boolean; filePath: string }>
+  }
+  fs: {
+    readFile: (filePath: string) => Promise<string>
+    writeFile: (filePath: string, data: string) => Promise<{ success: boolean }>
   }
   storage: {
     saveConnection: (connection: any) => Promise<any>

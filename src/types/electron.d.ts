@@ -37,6 +37,14 @@ export interface ElectronAPI {
       collection: string
     ) => Promise<any>
   }
+  dialog: {
+    showOpenDialog: (options: any) => Promise<{ canceled: boolean; filePaths: string[] }>
+    showSaveDialog: (options: any) => Promise<{ canceled: boolean; filePath: string }>
+  }
+  fs: {
+    readFile: (filePath: string) => Promise<string>
+    writeFile: (filePath: string, data: string) => Promise<{ success: boolean }>
+  }
   storage: {
     saveConnection: (connection: any) => Promise<any>
     getConnections: () => Promise<any>
