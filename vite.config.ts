@@ -44,6 +44,7 @@ export default defineConfig({
                 'gcp-metadata',
                 'socks',
                 '@aws-sdk/credential-providers',
+                'electron-updater',
               ]
             }
           }

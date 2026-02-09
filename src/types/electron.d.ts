@@ -1,5 +1,7 @@
 // Electron API types
 export interface ElectronAPI {
+  getVersion: () => Promise<string>
+  getPath: (name: string) => Promise<string>
   ping: (connectionId: string, dbType: string) => Promise<{ success: boolean; error?: string }>
   mongodb: {
     connect: (connection: any) => Promise<any>
@@ -55,6 +57,21 @@ export interface ElectronAPI {
     deleteSavedQuery: (id: string) => Promise<any>
     addQueryHistory: (history: any) => Promise<any>
     getQueryHistory: () => Promise<any>
+  }
+  updater: {
+    checkForUpdates: () => Promise<{ success: boolean; updateInfo?: any; error?: string }>
+    downloadUpdate: () => Promise<{ success: boolean; error?: string }>
+    quitAndInstall: () => Promise<{ success: boolean }>
+    getState: () => Promise<{
+      checking: boolean
+      updateAvailable: boolean
+      updateDownloaded: boolean
+      updateInfo: { version: string; releaseDate: string; releaseNotes: string } | null
+      downloadProgress: { percent: number; transferred: number; total: number } | null
+      error: string | null
+    }>
+    setAutoDownload: (enabled: boolean) => Promise<{ success: boolean }>
+    onStatus: (callback: (data: any) => void) => () => void
   }
   security: {
     setup2FA: () => Promise<{ success: boolean; secret?: string; uri?: string; qrDataUrl?: string; error?: string }>

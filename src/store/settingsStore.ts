@@ -19,6 +19,7 @@ export interface GeneralSettings {
   autoExpandSidebar: boolean
   dateFormat: string
   showWelcomePage: boolean
+  autoUpdate: boolean
 }
 
 export interface AppSettings {
@@ -54,6 +55,7 @@ const DEFAULT_GENERAL: GeneralSettings = {
   autoExpandSidebar: true,
   dateFormat: 'YYYY-MM-DD HH:mm:ss',
   showWelcomePage: true,
+  autoUpdate: true,
 }
 
 const DEFAULT_SETTINGS: AppSettings = {

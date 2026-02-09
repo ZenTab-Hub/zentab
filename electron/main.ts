@@ -9,6 +9,7 @@ import { connectToPostgreSQL, disconnectFromPostgreSQL, pingPostgreSQL, pgListDa
 import { connectToRedis, disconnectFromRedis, pingRedis, redisListDatabases, redisListKeys, redisGetKeyValue, redisSetKey, redisDeleteKey, redisExecuteCommand, redisGetInfo, redisFlushDatabase, redisRenameKey, redisGetServerStats, redisGetSlowLog, redisGetClients, redisMemoryUsage, redisBulkDelete, redisBulkTTL, redisAddItem, redisRemoveItem, redisSubscribe, redisUnsubscribe, redisUnsubscribeAll, redisPublish, redisGetPubSubChannels, setPubSubMessageCallback, disconnectAll as disconnectAllRedis } from './redis'
 import { connectToKafka, disconnectFromKafka, pingKafka, kafkaListTopics, kafkaGetTopicMetadata, kafkaConsumeMessages, kafkaProduceMessage, kafkaCreateTopic, kafkaDeleteTopic, kafkaGetClusterInfo, disconnectAll as disconnectAllKafka } from './kafka'
 import { createSSHTunnel, closeSSHTunnel, closeAllSSHTunnels, type SSHTunnelConfig } from './ssh-tunnel'
+import { initUpdater, setupUpdaterIPC, checkForUpdatesQuietly } from './updater'
 
 // Disable GPU acceleration for better compatibility
 app.disableHardwareAcceleration()
@@ -100,6 +101,24 @@ app.whenReady().then(() => {
   seedBuiltInTemplates()
 
   createWindow()
+
+  // Initialize auto-updater
+  if (mainWindow) {
+    initUpdater(mainWindow)
+  }
+  setupUpdaterIPC()
+
+  // Auto-check for updates if enabled (after a short delay)
+  setTimeout(() => {
+    try {
+      const autoUpdate = getAppSetting('autoUpdate')
+      if (autoUpdate !== 'false') {
+        checkForUpdatesQuietly()
+      }
+    } catch (_e) {
+      // ignore
+    }
+  }, 5000)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

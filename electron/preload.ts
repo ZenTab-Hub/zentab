@@ -244,6 +244,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
     deleteQueryTemplate: (id: string) => ipcRenderer.invoke('storage:deleteQueryTemplate', id),
   },
 
+  // Auto-updater operations
+  updater: {
+    checkForUpdates: () => ipcRenderer.invoke('updater:checkForUpdates'),
+    downloadUpdate: () => ipcRenderer.invoke('updater:downloadUpdate'),
+    quitAndInstall: () => ipcRenderer.invoke('updater:quitAndInstall'),
+    getState: () => ipcRenderer.invoke('updater:getState'),
+    setAutoDownload: (enabled: boolean) => ipcRenderer.invoke('updater:setAutoDownload', enabled),
+    onStatus: (callback: (data: any) => void) => {
+      const listener = (_event: any, data: any) => callback(data)
+      ipcRenderer.on('updater:status', listener)
+      return () => { ipcRenderer.removeListener('updater:status', listener) }
+    },
+  },
+
   // Security / 2FA operations
   security: {
     setup2FA: () => ipcRenderer.invoke('security:setup2FA'),
@@ -331,6 +345,21 @@ export interface ElectronAPI {
     getQueryTemplates: () => Promise<any[]>
     saveQueryTemplate: (template: any) => Promise<any>
     deleteQueryTemplate: (id: string) => Promise<{ success: boolean }>
+  }
+  updater: {
+    checkForUpdates: () => Promise<{ success: boolean; updateInfo?: any; error?: string }>
+    downloadUpdate: () => Promise<{ success: boolean; error?: string }>
+    quitAndInstall: () => Promise<{ success: boolean }>
+    getState: () => Promise<{
+      checking: boolean
+      updateAvailable: boolean
+      updateDownloaded: boolean
+      updateInfo: { version: string; releaseDate: string; releaseNotes: string } | null
+      downloadProgress: { percent: number; transferred: number; total: number } | null
+      error: string | null
+    }>
+    setAutoDownload: (enabled: boolean) => Promise<{ success: boolean }>
+    onStatus: (callback: (data: any) => void) => () => void
   }
   security: {
     setup2FA: () => Promise<{ success: boolean; secret?: string; uri?: string; qrDataUrl?: string; error?: string }>
