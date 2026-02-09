@@ -4,7 +4,7 @@ import path from 'path'
 import { initStorage, saveConnection, getConnections, deleteConnection, saveQuery, getSavedQueries, deleteSavedQuery, addQueryHistory, getQueryHistory } from './storage'
 import { connectToMongoDB, disconnectFromMongoDB, listDatabases, listCollections, executeQuery, insertDocument, updateDocument, deleteDocument, aggregate, getCollectionStats, mongoCreateDatabase, mongoDropDatabase, mongoCreateCollection, mongoDropCollection, mongoRenameCollection, mongoListIndexes, mongoCreateIndex, mongoDropIndex, explainQuery, getServerStatus } from './mongodb'
 import { connectToPostgreSQL, disconnectFromPostgreSQL, pgListDatabases, pgListTables, pgExecuteQuery, pgFindQuery, pgInsertDocument, pgUpdateDocument, pgDeleteDocument, pgAggregate, pgGetTableSchema, pgCreateDatabase, pgDropDatabase, pgCreateTable, pgDropTable, pgRenameTable, pgListIndexes, pgCreateIndex, pgDropIndex, pgExplainQuery, pgGetServerStats } from './postgresql'
-import { connectToRedis, disconnectFromRedis, redisListDatabases, redisListKeys, redisGetKeyValue, redisSetKey, redisDeleteKey, redisExecuteCommand, redisGetInfo, redisFlushDatabase, redisRenameKey } from './redis'
+import { connectToRedis, disconnectFromRedis, redisListDatabases, redisListKeys, redisGetKeyValue, redisSetKey, redisDeleteKey, redisExecuteCommand, redisGetInfo, redisFlushDatabase, redisRenameKey, redisGetServerStats, redisGetSlowLog, redisGetClients, redisMemoryUsage, redisBulkDelete, redisBulkTTL, redisAddItem, redisRemoveItem, redisSubscribe, redisUnsubscribe, redisUnsubscribeAll, redisPublish, redisGetPubSubChannels, setPubSubMessageCallback } from './redis'
 import { connectToKafka, disconnectFromKafka, kafkaListTopics, kafkaGetTopicMetadata, kafkaConsumeMessages, kafkaProduceMessage, kafkaCreateTopic, kafkaDeleteTopic, kafkaGetClusterInfo } from './kafka'
 
 // Disable GPU acceleration for better compatibility
@@ -362,6 +362,56 @@ ipcMain.handle('redis:flushDatabase', async (_event, connectionId, database) => 
 
 ipcMain.handle('redis:renameKey', async (_event, connectionId, database, oldKey, newKey) => {
   return await redisRenameKey(connectionId, database, oldKey, newKey)
+})
+
+// Redis Advanced IPC Handlers
+ipcMain.handle('redis:getServerStats', async (_event, connectionId) => {
+  return await redisGetServerStats(connectionId)
+})
+ipcMain.handle('redis:getSlowLog', async (_event, connectionId, count) => {
+  return await redisGetSlowLog(connectionId, count)
+})
+ipcMain.handle('redis:getClients', async (_event, connectionId) => {
+  return await redisGetClients(connectionId)
+})
+ipcMain.handle('redis:memoryUsage', async (_event, connectionId, database, key) => {
+  return await redisMemoryUsage(connectionId, database, key)
+})
+ipcMain.handle('redis:bulkDelete', async (_event, connectionId, database, pattern) => {
+  return await redisBulkDelete(connectionId, database, pattern)
+})
+ipcMain.handle('redis:bulkTTL', async (_event, connectionId, database, pattern, ttl) => {
+  return await redisBulkTTL(connectionId, database, pattern, ttl)
+})
+ipcMain.handle('redis:addItem', async (_event, connectionId, database, key, keyType, field, value, score) => {
+  return await redisAddItem(connectionId, database, key, keyType, field, value, score)
+})
+ipcMain.handle('redis:removeItem', async (_event, connectionId, database, key, keyType, field, index) => {
+  return await redisRemoveItem(connectionId, database, key, keyType, field, index)
+})
+
+// Redis Pub/Sub IPC Handlers
+ipcMain.handle('redis:subscribe', async (_event, connectionId, channels) => {
+  return await redisSubscribe(connectionId, channels)
+})
+ipcMain.handle('redis:unsubscribe', async (_event, connectionId, channels) => {
+  return await redisUnsubscribe(connectionId, channels)
+})
+ipcMain.handle('redis:unsubscribeAll', async (_event, connectionId) => {
+  return await redisUnsubscribeAll(connectionId)
+})
+ipcMain.handle('redis:publish', async (_event, connectionId, channel, message) => {
+  return await redisPublish(connectionId, channel, message)
+})
+ipcMain.handle('redis:getPubSubChannels', async (_event, connectionId) => {
+  return await redisGetPubSubChannels(connectionId)
+})
+
+// Set up pub/sub message forwarding to renderer
+setPubSubMessageCallback((connectionId, channel, message) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('redis:pubsubMessage', { connectionId, channel, message, timestamp: Date.now() })
+  }
 })
 
 // Kafka IPC Handlers

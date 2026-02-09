@@ -282,7 +282,57 @@ class DatabaseService {
     const dbType = type || this.getActiveType()
     if (dbType === 'postgresql') return postgresqlService.getServerStats(connectionId)
     if (dbType === 'mongodb') return mongodbService.getServerStatus(connectionId)
+    if (dbType === 'redis') return redisService.getServerStats(connectionId)
     return { success: false, error: 'Server monitoring not supported for this database type' }
+  }
+
+  /* ── Redis Advanced methods ── */
+  async redisGetSlowLog(connectionId: string, count?: number): Promise<any> {
+    return redisService.getSlowLog(connectionId, count)
+  }
+
+  async redisGetClients(connectionId: string): Promise<any> {
+    return redisService.getClients(connectionId)
+  }
+
+  async redisMemoryUsage(connectionId: string, database: string, key: string): Promise<any> {
+    return redisService.memoryUsage(connectionId, database, key)
+  }
+
+  async redisBulkDelete(connectionId: string, database: string, pattern: string): Promise<any> {
+    return redisService.bulkDelete(connectionId, database, pattern)
+  }
+
+  async redisBulkTTL(connectionId: string, database: string, pattern: string, ttl: number): Promise<any> {
+    return redisService.bulkTTL(connectionId, database, pattern, ttl)
+  }
+
+  async redisAddItem(connectionId: string, database: string, key: string, keyType: string, field: string, value: string, score?: number): Promise<any> {
+    return redisService.addItem(connectionId, database, key, keyType, field, value, score)
+  }
+
+  async redisRemoveItem(connectionId: string, database: string, key: string, keyType: string, field: string, index?: number): Promise<any> {
+    return redisService.removeItem(connectionId, database, key, keyType, field, index)
+  }
+
+  /* ── Redis Pub/Sub ── */
+  async redisSubscribe(connectionId: string, channels: string[]): Promise<any> {
+    return redisService.subscribe(connectionId, channels)
+  }
+  async redisUnsubscribe(connectionId: string, channels: string[]): Promise<any> {
+    return redisService.unsubscribe(connectionId, channels)
+  }
+  async redisUnsubscribeAll(connectionId: string): Promise<any> {
+    return redisService.unsubscribeAll(connectionId)
+  }
+  async redisPublish(connectionId: string, channel: string, message: string): Promise<any> {
+    return redisService.publish(connectionId, channel, message)
+  }
+  async redisGetPubSubChannels(connectionId: string): Promise<any> {
+    return redisService.getPubSubChannels(connectionId)
+  }
+  onRedisPubSubMessage(callback: (data: { connectionId: string; channel: string; message: string; timestamp: number }) => void): () => void {
+    return redisService.onPubSubMessage(callback)
   }
 }
 

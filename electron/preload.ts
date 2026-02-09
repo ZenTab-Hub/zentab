@@ -145,6 +145,39 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('redis:flushDatabase', connectionId, database),
     renameKey: (connectionId: string, database: string, oldKey: string, newKey: string) =>
       ipcRenderer.invoke('redis:renameKey', connectionId, database, oldKey, newKey),
+    // Advanced
+    getServerStats: (connectionId: string) =>
+      ipcRenderer.invoke('redis:getServerStats', connectionId),
+    getSlowLog: (connectionId: string, count?: number) =>
+      ipcRenderer.invoke('redis:getSlowLog', connectionId, count || 50),
+    getClients: (connectionId: string) =>
+      ipcRenderer.invoke('redis:getClients', connectionId),
+    memoryUsage: (connectionId: string, database: string, key: string) =>
+      ipcRenderer.invoke('redis:memoryUsage', connectionId, database, key),
+    bulkDelete: (connectionId: string, database: string, pattern: string) =>
+      ipcRenderer.invoke('redis:bulkDelete', connectionId, database, pattern),
+    bulkTTL: (connectionId: string, database: string, pattern: string, ttl: number) =>
+      ipcRenderer.invoke('redis:bulkTTL', connectionId, database, pattern, ttl),
+    addItem: (connectionId: string, database: string, key: string, keyType: string, field: string, value: string, score?: number) =>
+      ipcRenderer.invoke('redis:addItem', connectionId, database, key, keyType, field, value, score),
+    removeItem: (connectionId: string, database: string, key: string, keyType: string, field: string, index?: number) =>
+      ipcRenderer.invoke('redis:removeItem', connectionId, database, key, keyType, field, index),
+    // Pub/Sub
+    subscribe: (connectionId: string, channels: string[]) =>
+      ipcRenderer.invoke('redis:subscribe', connectionId, channels),
+    unsubscribe: (connectionId: string, channels: string[]) =>
+      ipcRenderer.invoke('redis:unsubscribe', connectionId, channels),
+    unsubscribeAll: (connectionId: string) =>
+      ipcRenderer.invoke('redis:unsubscribeAll', connectionId),
+    publish: (connectionId: string, channel: string, message: string) =>
+      ipcRenderer.invoke('redis:publish', connectionId, channel, message),
+    getPubSubChannels: (connectionId: string) =>
+      ipcRenderer.invoke('redis:getPubSubChannels', connectionId),
+    onPubSubMessage: (callback: (data: { connectionId: string; channel: string; message: string; timestamp: number }) => void) => {
+      const handler = (_event: any, data: any) => callback(data)
+      ipcRenderer.on('redis:pubsubMessage', handler)
+      return () => ipcRenderer.removeListener('redis:pubsubMessage', handler)
+    },
   },
 
   // Kafka operations

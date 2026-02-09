@@ -8,6 +8,7 @@ import {
   FileJson,
   Upload,
   Activity,
+  Terminal,
   Settings,
   ChevronRight,
   ChevronDown,
@@ -43,6 +44,7 @@ const navigation = [
   { name: 'Schema', href: '/schema-analyzer', icon: FileJson },
   { name: 'Import/Export', href: '/import-export', icon: Upload },
   { name: 'Monitoring', href: '/monitoring', icon: Activity },
+  { name: 'Redis Tools', href: '/redis-tools', icon: Terminal, dbType: 'redis' as const },
 ]
 
 export const Sidebar = () => {
@@ -204,7 +206,7 @@ export const Sidebar = () => {
         >
           <img src="/logo.png" alt="Logo" className="h-5 w-5 object-contain" />
         </button>
-        {navigation.map((item) => {
+        {navigation.filter(item => !(item as any).dbType || (item as any).dbType === activeConnection?.type).map((item) => {
           const isActive = location.pathname === item.href
           return (
             <Link
@@ -384,7 +386,7 @@ export const Sidebar = () => {
       {/* Navigation */}
       <nav className="border-t border-border/50 p-1.5">
         <div className="space-y-0.5">
-          {navigation.map((item) => {
+          {navigation.filter(item => !(item as any).dbType || (item as any).dbType === activeConnection?.type).map((item) => {
             const isActive = location.pathname === item.href
             return (
               <Link

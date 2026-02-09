@@ -62,6 +62,65 @@ class RedisService {
   async renameKey(connectionId: string, database: string, oldKey: string, newKey: string): Promise<any> {
     return this.callElectronAPI('renameKey', connectionId, database, oldKey, newKey)
   }
+
+  // Advanced
+  async getServerStats(connectionId: string): Promise<any> {
+    return this.callElectronAPI('getServerStats', connectionId)
+  }
+
+  async getSlowLog(connectionId: string, count?: number): Promise<any> {
+    return this.callElectronAPI('getSlowLog', connectionId, count || 50)
+  }
+
+  async getClients(connectionId: string): Promise<any> {
+    return this.callElectronAPI('getClients', connectionId)
+  }
+
+  async memoryUsage(connectionId: string, database: string, key: string): Promise<any> {
+    return this.callElectronAPI('memoryUsage', connectionId, database, key)
+  }
+
+  async bulkDelete(connectionId: string, database: string, pattern: string): Promise<any> {
+    return this.callElectronAPI('bulkDelete', connectionId, database, pattern)
+  }
+
+  async bulkTTL(connectionId: string, database: string, pattern: string, ttl: number): Promise<any> {
+    return this.callElectronAPI('bulkTTL', connectionId, database, pattern, ttl)
+  }
+
+  async addItem(connectionId: string, database: string, key: string, keyType: string, field: string, value: string, score?: number): Promise<any> {
+    return this.callElectronAPI('addItem', connectionId, database, key, keyType, field, value, score)
+  }
+
+  async removeItem(connectionId: string, database: string, key: string, keyType: string, field: string, index?: number): Promise<any> {
+    return this.callElectronAPI('removeItem', connectionId, database, key, keyType, field, index)
+  }
+
+  // Pub/Sub
+  async subscribe(connectionId: string, channels: string[]): Promise<any> {
+    return this.callElectronAPI('subscribe', connectionId, channels)
+  }
+
+  async unsubscribe(connectionId: string, channels: string[]): Promise<any> {
+    return this.callElectronAPI('unsubscribe', connectionId, channels)
+  }
+
+  async unsubscribeAll(connectionId: string): Promise<any> {
+    return this.callElectronAPI('unsubscribeAll', connectionId)
+  }
+
+  async publish(connectionId: string, channel: string, message: string): Promise<any> {
+    return this.callElectronAPI('publish', connectionId, channel, message)
+  }
+
+  async getPubSubChannels(connectionId: string): Promise<any> {
+    return this.callElectronAPI('getPubSubChannels', connectionId)
+  }
+
+  onPubSubMessage(callback: (data: { connectionId: string; channel: string; message: string; timestamp: number }) => void): () => void {
+    if (!window.electronAPI) return () => {}
+    return (window.electronAPI as any).redis.onPubSubMessage(callback)
+  }
 }
 
 export const redisService = new RedisService()

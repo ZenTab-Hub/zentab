@@ -54,7 +54,7 @@ export const MonitoringPage = () => {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const isSupported = dbType === 'mongodb' || dbType === 'postgresql'
+  const isSupported = dbType === 'mongodb' || dbType === 'postgresql' || dbType === 'redis'
 
   const fetchStats = useCallback(async () => {
     if (!activeConnectionId || !isSupported) return
@@ -104,7 +104,7 @@ export const MonitoringPage = () => {
         <div className="text-center">
           <Activity className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
           <p className="text-sm text-muted-foreground">Server monitoring is not available for {dbType}</p>
-          <p className="text-[10px] text-muted-foreground mt-1">Supported: MongoDB, PostgreSQL</p>
+          <p className="text-[10px] text-muted-foreground mt-1">Supported: MongoDB, PostgreSQL, Redis</p>
         </div>
       </div>
     )
@@ -142,6 +142,7 @@ export const MonitoringPage = () => {
         {error && <div className="mb-4 p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 text-xs">{error}</div>}
         {stats && dbType === 'mongodb' && <MongoStats stats={stats} />}
         {stats && dbType === 'postgresql' && <PgStats stats={stats} />}
+        {stats && dbType === 'redis' && <RedisStats stats={stats} />}
         {!stats && !error && <div className="text-center text-sm text-muted-foreground py-10">Loading server stats...</div>}
       </div>
     </div>
@@ -285,6 +286,132 @@ const PgStats = ({ stats }: { stats: any }) => {
           <StatCard icon={ArrowUpDown} label="Deleted" value={formatNumber(tuples.deleted || 0)} color="text-red-400" />
         </div>
       </div>
+    </div>
+  )
+}
+
+
+const RedisStats = ({ stats }: { stats: any }) => {
+  const srv = stats.server || {}
+  const cli = stats.clients || {}
+  const mem = stats.memory || {}
+  const st = stats.stats || {}
+  const pers = stats.persistence || {}
+  const repl = stats.replication || {}
+  const cpu = stats.cpu || {}
+  const ks = stats.keyspace || []
+
+  const hitRatio = st.keyspaceHits + st.keyspaceMisses > 0
+    ? ((st.keyspaceHits / (st.keyspaceHits + st.keyspaceMisses)) * 100).toFixed(1)
+    : '0'
+
+  const totalKeys = ks.reduce((sum: number, db: any) => sum + db.keys, 0)
+
+  return (
+    <div className="space-y-4">
+      {/* Server Info */}
+      <div>
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Server Info</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <StatCard icon={Server} label="Version" value={srv.version} color="text-red-400" />
+          <StatCard icon={Database} label="Mode" value={srv.mode} color="text-purple-400" />
+          <StatCard icon={Clock} label="Uptime" value={formatUptime(srv.uptimeInSeconds || 0)} color="text-green-400" />
+          <StatCard icon={Server} label="Port" value={srv.tcpPort} color="text-blue-400" />
+        </div>
+      </div>
+
+      {/* Clients */}
+      <div>
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Clients</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <StatCard icon={Wifi} label="Connected" value={formatNumber(cli.connected)} color="text-green-400" />
+          <StatCard icon={Wifi} label="Blocked" value={formatNumber(cli.blocked)} color="text-red-400" />
+          <StatCard icon={Gauge} label="Max Clients" value={formatNumber(cli.maxClients)} color="text-blue-400" />
+        </div>
+      </div>
+
+      {/* Memory */}
+      <div>
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Memory</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <StatCard icon={Cpu} label="Used Memory" value={mem.usedHuman} sub={`Peak: ${mem.usedPeakHuman}`} color="text-orange-400" />
+          <StatCard icon={Cpu} label="RSS Memory" value={mem.usedRssHuman} color="text-purple-400" />
+          <StatCard icon={HardDrive} label="Max Memory" value={mem.maxMemory > 0 ? mem.maxMemoryHuman : 'Unlimited'} sub={`Policy: ${mem.maxMemoryPolicy}`} color="text-blue-400" />
+          <StatCard icon={Gauge} label="Frag Ratio" value={mem.fragRatio.toFixed(2)} sub={mem.fragRatio > 1.5 ? '⚠ High fragmentation' : 'Normal'} color={mem.fragRatio > 1.5 ? 'text-yellow-400' : 'text-green-400'} />
+        </div>
+      </div>
+
+      {/* Operations */}
+      <div>
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Operations</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <StatCard icon={Gauge} label="Ops/sec" value={formatNumber(st.instantaneousOpsPerSec)} color="text-green-400" />
+          <StatCard icon={ArrowUpDown} label="Total Commands" value={formatNumber(st.totalCommandsProcessed)} color="text-blue-400" />
+          <StatCard icon={ArrowUpDown} label="Total Connections" value={formatNumber(st.totalConnectionsReceived)} color="text-cyan-400" />
+          <StatCard icon={Gauge} label="Hit Ratio" value={`${hitRatio}%`} sub={`${formatNumber(st.keyspaceHits)} hits / ${formatNumber(st.keyspaceMisses)} misses`} color="text-yellow-400" />
+        </div>
+      </div>
+
+      {/* Network */}
+      <div>
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Network & Keys</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <StatCard icon={ArrowUpDown} label="Net Input" value={formatBytes(st.totalNetInputBytes)} color="text-green-400" />
+          <StatCard icon={ArrowUpDown} label="Net Output" value={formatBytes(st.totalNetOutputBytes)} color="text-blue-400" />
+          <StatCard icon={Database} label="Total Keys" value={formatNumber(totalKeys)} color="text-red-400" />
+          <StatCard icon={Clock} label="Expired Keys" value={formatNumber(st.expiredKeys)} sub={`Evicted: ${formatNumber(st.evictedKeys)}`} color="text-orange-400" />
+        </div>
+      </div>
+
+      {/* Persistence */}
+      <div>
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Persistence</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <StatCard icon={HardDrive} label="RDB Status" value={pers.rdbLastSaveStatus} sub={`Changes: ${formatNumber(pers.rdbChangesSinceLastSave)}`} color={pers.rdbLastSaveStatus === 'ok' ? 'text-green-400' : 'text-red-400'} />
+          <StatCard icon={HardDrive} label="AOF Enabled" value={pers.aofEnabled ? 'Yes' : 'No'} sub={pers.aofEnabled ? `Rewrite: ${pers.aofLastRewriteStatus}` : ''} color={pers.aofEnabled ? 'text-green-400' : 'text-muted-foreground'} />
+          <StatCard icon={Database} label="Pub/Sub" value={`${st.pubsubChannels} ch`} sub={`${st.pubsubPatterns} patterns`} color="text-purple-400" />
+        </div>
+      </div>
+
+      {/* Replication */}
+      <div>
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Replication & CPU</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <StatCard icon={Server} label="Role" value={repl.role} color={repl.role === 'master' ? 'text-green-400' : 'text-yellow-400'} />
+          <StatCard icon={Wifi} label="Connected Slaves" value={repl.connectedSlaves} color="text-blue-400" />
+          <StatCard icon={Cpu} label="CPU Sys" value={`${cpu.usedCpuSys.toFixed(2)}s`} color="text-orange-400" />
+          <StatCard icon={Cpu} label="CPU User" value={`${cpu.usedCpuUser.toFixed(2)}s`} color="text-purple-400" />
+        </div>
+      </div>
+
+      {/* Keyspace */}
+      {ks.length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Keyspace</h3>
+          <div className="rounded-lg border bg-card overflow-hidden">
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="border-b bg-muted/30">
+                  <th className="text-left px-3 py-1.5 font-medium">Database</th>
+                  <th className="text-right px-3 py-1.5 font-medium">Keys</th>
+                  <th className="text-right px-3 py-1.5 font-medium">Expires</th>
+                  <th className="text-right px-3 py-1.5 font-medium">Avg TTL (ms)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ks.map((db: any) => (
+                  <tr key={db.db} className="border-b last:border-0 hover:bg-muted/20">
+                    <td className="px-3 py-1.5 font-mono text-red-400">{db.db}</td>
+                    <td className="px-3 py-1.5 text-right">{formatNumber(db.keys)}</td>
+                    <td className="px-3 py-1.5 text-right">{formatNumber(db.expires)}</td>
+                    <td className="px-3 py-1.5 text-right">{formatNumber(db.avgTtl)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

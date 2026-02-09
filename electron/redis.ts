@@ -6,6 +6,19 @@ interface RedisConnectionInfo {
 
 const connections = new Map<string, RedisConnectionInfo>()
 
+// Pub/Sub: separate subscriber connections (subscribing puts client in subscriber mode)
+interface PubSubInfo {
+  subscriber: Redis
+  channels: Set<string>
+}
+const pubsubConnections = new Map<string, PubSubInfo>()
+let pubsubMessageCallback: ((connectionId: string, channel: string, message: string) => void) | null = null
+
+/** Set callback for pub/sub messages (called from main.ts) */
+export const setPubSubMessageCallback = (cb: (connectionId: string, channel: string, message: string) => void) => {
+  pubsubMessageCallback = cb
+}
+
 export const connectToRedis = async (connectionId: string, connectionString: string) => {
   try {
     if (connections.has(connectionId)) {
@@ -32,6 +45,13 @@ export const connectToRedis = async (connectionId: string, connectionString: str
 
 export const disconnectFromRedis = async (connectionId: string) => {
   try {
+    // Clean up pub/sub subscriber
+    const psInfo = pubsubConnections.get(connectionId)
+    if (psInfo) {
+      try { await psInfo.subscriber.quit() } catch {}
+      pubsubConnections.delete(connectionId)
+    }
+
     const connection = connections.get(connectionId)
     if (connection) {
       await connection.client.quit()
@@ -271,6 +291,288 @@ export const redisGetInfo = async (connectionId: string) => {
   }
 }
 
+/** Parse Redis INFO output into structured object */
+function parseRedisInfo(info: string): Record<string, Record<string, string>> {
+  const sections: Record<string, Record<string, string>> = {}
+  let currentSection = 'default'
+  for (const line of info.split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) {
+      if (trimmed.startsWith('# ')) currentSection = trimmed.slice(2).toLowerCase()
+      continue
+    }
+    const idx = trimmed.indexOf(':')
+    if (idx > 0) {
+      if (!sections[currentSection]) sections[currentSection] = {}
+      sections[currentSection][trimmed.slice(0, idx)] = trimmed.slice(idx + 1)
+    }
+  }
+  return sections
+}
+
+/** Get Redis server stats (structured) */
+export const redisGetServerStats = async (connectionId: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const info = await connection.client.info()
+    const parsed = parseRedisInfo(info)
+    const server = parsed.server || {}
+    const clients = parsed.clients || {}
+    const memory = parsed.memory || {}
+    const stats = parsed.stats || {}
+    const persistence = parsed.persistence || {}
+    const replication = parsed.replication || {}
+    const keyspace = parsed.keyspace || {}
+    const cpu = parsed.cpu || {}
+
+    // Parse keyspace info
+    const keyspaceInfo: Array<{ db: string; keys: number; expires: number; avgTtl: number }> = []
+    for (const [k, v] of Object.entries(keyspace)) {
+      const m = v.match(/keys=(\d+),expires=(\d+),avg_ttl=(\d+)/)
+      if (m) keyspaceInfo.push({ db: k, keys: +m[1], expires: +m[2], avgTtl: +m[3] })
+    }
+
+    return {
+      success: true,
+      stats: {
+        server: {
+          version: server.redis_version || 'N/A',
+          mode: server.redis_mode || 'standalone',
+          os: server.os || 'N/A',
+          uptimeInSeconds: +(server.uptime_in_seconds || 0),
+          tcpPort: +(server.tcp_port || 6379),
+          configFile: server.config_file || '',
+        },
+        clients: {
+          connected: +(clients.connected_clients || 0),
+          blocked: +(clients.blocked_clients || 0),
+          maxClients: +(clients.maxclients || 0),
+          trackingClients: +(clients.tracking_clients || 0),
+        },
+        memory: {
+          used: +(memory.used_memory || 0),
+          usedHuman: memory.used_memory_human || '0B',
+          usedPeak: +(memory.used_memory_peak || 0),
+          usedPeakHuman: memory.used_memory_peak_human || '0B',
+          usedRss: +(memory.used_memory_rss || 0),
+          usedRssHuman: memory.used_memory_rss_human || '0B',
+          maxMemory: +(memory.maxmemory || 0),
+          maxMemoryHuman: memory.maxmemory_human || '0B',
+          maxMemoryPolicy: memory.maxmemory_policy || 'noeviction',
+          fragRatio: +(memory.mem_fragmentation_ratio || 0),
+        },
+        stats: {
+          totalConnectionsReceived: +(stats.total_connections_received || 0),
+          totalCommandsProcessed: +(stats.total_commands_processed || 0),
+          instantaneousOpsPerSec: +(stats.instantaneous_ops_per_sec || 0),
+          totalNetInputBytes: +(stats.total_net_input_bytes || 0),
+          totalNetOutputBytes: +(stats.total_net_output_bytes || 0),
+          keyspaceHits: +(stats.keyspace_hits || 0),
+          keyspaceMisses: +(stats.keyspace_misses || 0),
+          expiredKeys: +(stats.expired_keys || 0),
+          evictedKeys: +(stats.evicted_keys || 0),
+          pubsubChannels: +(stats.pubsub_channels || 0),
+          pubsubPatterns: +(stats.pubsub_patterns || 0),
+        },
+        persistence: {
+          rdbEnabled: persistence.rdb_last_save_time !== undefined,
+          rdbLastSaveTime: +(persistence.rdb_last_save_time || 0),
+          rdbLastSaveStatus: persistence.rdb_last_bgsave_status || 'N/A',
+          rdbChangesSinceLastSave: +(persistence.rdb_changes_since_last_save || 0),
+          aofEnabled: persistence.aof_enabled === '1',
+          aofRewriteInProgress: persistence.aof_rewrite_in_progress === '1',
+          aofLastRewriteStatus: persistence.aof_last_bgrewrite_status || 'N/A',
+        },
+        replication: {
+          role: replication.role || 'master',
+          connectedSlaves: +(replication.connected_slaves || 0),
+          replOffset: +(replication.master_repl_offset || 0),
+        },
+        cpu: {
+          usedCpuSys: +(cpu.used_cpu_sys || 0),
+          usedCpuUser: +(cpu.used_cpu_user || 0),
+        },
+        keyspace: keyspaceInfo,
+      },
+    }
+  } catch (error: any) {
+    console.error('Redis get server stats error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+/** Get Redis slow log */
+export const redisGetSlowLog = async (connectionId: string, count: number = 50) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const result = await (connection.client as any).call('SLOWLOG', 'GET', String(count))
+    const entries = (result || []).map((entry: any) => ({
+      id: entry[0],
+      timestamp: entry[1],
+      duration: entry[2], // microseconds
+      command: Array.isArray(entry[3]) ? entry[3].join(' ') : String(entry[3]),
+      clientAddr: entry[4] || '',
+      clientName: entry[5] || '',
+    }))
+
+    return { success: true, entries }
+  } catch (error: any) {
+    console.error('Redis get slow log error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+/** Get Redis client list */
+export const redisGetClients = async (connectionId: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const result = await connection.client.client('LIST') as string
+    const clients = result.split('\n').filter(l => l.trim()).map(line => {
+      const obj: Record<string, string> = {}
+      for (const part of line.split(' ')) {
+        const idx = part.indexOf('=')
+        if (idx > 0) obj[part.slice(0, idx)] = part.slice(idx + 1)
+      }
+      return obj
+    })
+
+    return { success: true, clients }
+  } catch (error: any) {
+    console.error('Redis get clients error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+/** Get memory usage for a key */
+export const redisMemoryUsage = async (connectionId: string, database: string, key: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const dbIndex = parseInt(database.replace('db', '')) || 0
+    await connection.client.select(dbIndex)
+
+    const bytes = await (connection.client as any).call('MEMORY', 'USAGE', key)
+    return { success: true, bytes: bytes || 0 }
+  } catch (error: any) {
+    console.error('Redis memory usage error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+/** Bulk delete keys by pattern */
+export const redisBulkDelete = async (connectionId: string, database: string, pattern: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const dbIndex = parseInt(database.replace('db', '')) || 0
+    await connection.client.select(dbIndex)
+
+    let deleted = 0
+    let cursor = '0'
+    do {
+      const [nextCursor, keys] = await connection.client.scan(cursor, 'MATCH', pattern, 'COUNT', 100)
+      cursor = nextCursor
+      if (keys.length > 0) {
+        deleted += await connection.client.del(...keys)
+      }
+    } while (cursor !== '0')
+
+    return { success: true, deleted }
+  } catch (error: any) {
+    console.error('Redis bulk delete error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+/** Set TTL on multiple keys by pattern */
+export const redisBulkTTL = async (connectionId: string, database: string, pattern: string, ttl: number) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const dbIndex = parseInt(database.replace('db', '')) || 0
+    await connection.client.select(dbIndex)
+
+    let updated = 0
+    let cursor = '0'
+    do {
+      const [nextCursor, keys] = await connection.client.scan(cursor, 'MATCH', pattern, 'COUNT', 100)
+      cursor = nextCursor
+      const pipeline = connection.client.pipeline()
+      for (const key of keys) {
+        if (ttl > 0) pipeline.expire(key, ttl)
+        else pipeline.persist(key)
+      }
+      await pipeline.exec()
+      updated += keys.length
+    } while (cursor !== '0')
+
+    return { success: true, updated }
+  } catch (error: any) {
+    console.error('Redis bulk TTL error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+/** Add/remove individual items from hash/list/set/zset */
+export const redisAddItem = async (connectionId: string, database: string, key: string, keyType: string, field: string, value: string, score?: number) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const dbIndex = parseInt(database.replace('db', '')) || 0
+    await connection.client.select(dbIndex)
+
+    switch (keyType) {
+      case 'hash': await connection.client.hset(key, field, value); break
+      case 'list': await connection.client.rpush(key, value); break
+      case 'set': await connection.client.sadd(key, value); break
+      case 'zset': await connection.client.zadd(key, score ?? 0, value); break
+      default: throw new Error(`Cannot add item to type: ${keyType}`)
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error('Redis add item error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export const redisRemoveItem = async (connectionId: string, database: string, key: string, keyType: string, field: string, index?: number) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const dbIndex = parseInt(database.replace('db', '')) || 0
+    await connection.client.select(dbIndex)
+
+    switch (keyType) {
+      case 'hash': await connection.client.hdel(key, field); break
+      case 'list': {
+        // Remove by value (first occurrence)
+        await connection.client.lrem(key, 1, field)
+        break
+      }
+      case 'set': await connection.client.srem(key, field); break
+      case 'zset': await connection.client.zrem(key, field); break
+      default: throw new Error(`Cannot remove item from type: ${keyType}`)
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error('Redis remove item error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
 /** Flush all keys in a database */
 export const redisFlushDatabase = async (connectionId: string, database: string) => {
   try {
@@ -299,6 +601,102 @@ export const redisRenameKey = async (connectionId: string, database: string, old
     return { success: true }
   } catch (error: any) {
     console.error('Redis rename key error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+/* ── Pub/Sub ──────────── */
+
+/** Get the subscriber connection, creating one if needed */
+const getOrCreateSubscriber = async (connectionId: string): Promise<PubSubInfo> => {
+  const existing = pubsubConnections.get(connectionId)
+  if (existing) return existing
+
+  const connection = connections.get(connectionId)
+  if (!connection) throw new Error('Not connected')
+
+  // Duplicate the main client for subscribing
+  const subscriber = connection.client.duplicate()
+  await subscriber.connect()
+
+  const psInfo: PubSubInfo = { subscriber, channels: new Set() }
+
+  subscriber.on('message', (channel: string, message: string) => {
+    if (pubsubMessageCallback) pubsubMessageCallback(connectionId, channel, message)
+  })
+
+  pubsubConnections.set(connectionId, psInfo)
+  return psInfo
+}
+
+/** Subscribe to one or more channels */
+export const redisSubscribe = async (connectionId: string, channels: string[]) => {
+  try {
+    const psInfo = await getOrCreateSubscriber(connectionId)
+    await psInfo.subscriber.subscribe(...channels)
+    channels.forEach(ch => psInfo.channels.add(ch))
+    return { success: true, channels: Array.from(psInfo.channels) }
+  } catch (error: any) {
+    console.error('Redis subscribe error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+/** Unsubscribe from one or more channels */
+export const redisUnsubscribe = async (connectionId: string, channels: string[]) => {
+  try {
+    const psInfo = pubsubConnections.get(connectionId)
+    if (!psInfo) return { success: true, channels: [] }
+    await psInfo.subscriber.unsubscribe(...channels)
+    channels.forEach(ch => psInfo.channels.delete(ch))
+    return { success: true, channels: Array.from(psInfo.channels) }
+  } catch (error: any) {
+    console.error('Redis unsubscribe error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+/** Unsubscribe from all and close subscriber */
+export const redisUnsubscribeAll = async (connectionId: string) => {
+  try {
+    const psInfo = pubsubConnections.get(connectionId)
+    if (psInfo) {
+      await psInfo.subscriber.unsubscribe()
+      try { await psInfo.subscriber.quit() } catch {}
+      pubsubConnections.delete(connectionId)
+    }
+    return { success: true }
+  } catch (error: any) {
+    console.error('Redis unsubscribe all error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+/** Publish a message to a channel */
+export const redisPublish = async (connectionId: string, channel: string, message: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+    const receivers = await connection.client.publish(channel, message)
+    return { success: true, receivers }
+  } catch (error: any) {
+    console.error('Redis publish error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+/** List active pub/sub channels on the server */
+export const redisGetPubSubChannels = async (connectionId: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+    const channels = await connection.client.pubsub('CHANNELS') as string[]
+    // Get subscriber count for the current connection
+    const psInfo = pubsubConnections.get(connectionId)
+    const subscribedChannels = psInfo ? Array.from(psInfo.channels) : []
+    return { success: true, channels, subscribedChannels }
+  } catch (error: any) {
+    console.error('Redis pubsub channels error:', error)
     return { success: false, error: error.message }
   }
 }

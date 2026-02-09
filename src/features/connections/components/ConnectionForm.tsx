@@ -4,13 +4,11 @@ import type { DatabaseType } from '@/types'
 
 /* ── Static class strings (no cn/twMerge at runtime) ─────────── */
 const INPUT_CLS = 'flex h-8 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
-const LABEL_CLS = 'block text-xs font-medium mb-1.5'
-const BTN_PRIMARY_CLS = 'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium h-9 px-3 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors'
-const BTN_OUTLINE_CLS = 'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium h-9 px-3 border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors'
-const TAB_ACTIVE = 'flex-1 px-3 py-1.5 text-xs font-medium rounded bg-background shadow-sm text-foreground transition-colors duration-100'
-const TAB_INACTIVE = 'flex-1 px-3 py-1.5 text-xs font-medium rounded text-muted-foreground hover:text-foreground transition-colors duration-100'
-const DB_BTN_ON = 'flex items-center gap-2 px-3 py-2 rounded text-xs font-medium border bg-primary/10 border-primary/50 text-primary transition-colors duration-100'
-const DB_BTN_OFF = 'flex items-center gap-2 px-3 py-2 rounded text-xs font-medium border bg-background border-transparent hover:bg-accent text-muted-foreground hover:text-foreground transition-colors duration-100'
+const LABEL_CLS = 'block text-xs font-medium mb-1.5 text-muted-foreground'
+const BTN_PRIMARY_CLS = 'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium h-9 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors'
+const BTN_OUTLINE_CLS = 'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium h-9 px-4 border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors'
+const TAB_ACTIVE = 'flex-1 px-3 py-1.5 text-xs font-medium rounded-md bg-background shadow-sm text-foreground transition-all duration-150'
+const TAB_INACTIVE = 'flex-1 px-3 py-1.5 text-xs font-medium rounded-md text-muted-foreground hover:text-foreground transition-all duration-150'
 
 /* ── Collapsible section style (GPU-accelerated grid rows) ───── */
 const SECTION_OPEN = 'grid transition-[grid-template-rows,opacity] duration-200 ease-out'
@@ -18,21 +16,25 @@ const SECTION_STYLE_OPEN = { gridTemplateRows: '1fr', opacity: 1 } as const
 const SECTION_STYLE_CLOSED = { gridTemplateRows: '0fr', opacity: 0, pointerEvents: 'none' as const } as const
 
 /* ── Static config (never re-created) ─────────────────────────── */
-const DB_TYPES: DatabaseType[] = ['mongodb', 'postgresql', 'redis', 'kafka', 'mysql', 'sqlite', 'mssql']
-
 const DB_CONFIGS = {
-  mongodb:    { label: 'MongoDB',    defaultPort: 27017, icon: Database,  color: 'text-green-500',  iconOn: 'h-3.5 w-3.5 text-primary', placeholder: 'mongodb://localhost:27017',       connStringExample: 'mongodb+srv://user:pass@cluster.mongodb.net/db' },
-  postgresql: { label: 'PostgreSQL', defaultPort: 5432,  icon: Server,    color: 'text-blue-500',   iconOn: 'h-3.5 w-3.5 text-primary', placeholder: 'postgresql://localhost:5432/mydb', connStringExample: 'postgresql://user:pass@host:5432/database' },
-  mysql:      { label: 'MySQL',      defaultPort: 3306,  icon: Server,    color: 'text-orange-500', iconOn: 'h-3.5 w-3.5 text-primary', placeholder: 'mysql://localhost:3306/mydb',      connStringExample: 'mysql://user:pass@host:3306/database' },
-  sqlite:     { label: 'SQLite',     defaultPort: 0,     icon: HardDrive, color: 'text-gray-400',   iconOn: 'h-3.5 w-3.5 text-primary', placeholder: '/path/to/database.db',            connStringExample: '/path/to/database.db' },
-  redis:      { label: 'Redis',      defaultPort: 6379,  icon: Layers,    color: 'text-red-500',    iconOn: 'h-3.5 w-3.5 text-primary', placeholder: 'redis://localhost:6379',           connStringExample: 'redis://user:pass@host:6379/0' },
-  kafka:      { label: 'Kafka',      defaultPort: 9092,  icon: Radio,     color: 'text-amber-500',  iconOn: 'h-3.5 w-3.5 text-primary', placeholder: 'kafka://localhost:9092',           connStringExample: 'kafka://user:pass@broker1:9092,broker2:9092' },
-  mssql:      { label: 'SQL Server', defaultPort: 1433,  icon: Server,    color: 'text-purple-500', iconOn: 'h-3.5 w-3.5 text-primary', placeholder: 'mssql://localhost:1433',           connStringExample: 'mssql://user:pass@host:1433/database' },
+  mongodb:    { label: 'MongoDB',    defaultPort: 27017, icon: Database,  color: 'text-green-500',  bgColor: 'bg-green-500/10', borderColor: 'border-green-500/30', placeholder: 'mongodb://localhost:27017',       connStringExample: 'mongodb+srv://user:pass@cluster.mongodb.net/db' },
+  postgresql: { label: 'PostgreSQL', defaultPort: 5432,  icon: Server,    color: 'text-blue-500',   bgColor: 'bg-blue-500/10',  borderColor: 'border-blue-500/30',  placeholder: 'postgresql://localhost:5432/mydb', connStringExample: 'postgresql://user:pass@host:5432/database' },
+  mysql:      { label: 'MySQL',      defaultPort: 3306,  icon: Server,    color: 'text-orange-500', bgColor: 'bg-orange-500/10', borderColor: 'border-orange-500/30', placeholder: 'mysql://localhost:3306/mydb',      connStringExample: 'mysql://user:pass@host:3306/database' },
+  sqlite:     { label: 'SQLite',     defaultPort: 0,     icon: HardDrive, color: 'text-gray-400',   bgColor: 'bg-gray-500/10',  borderColor: 'border-gray-500/30',  placeholder: '/path/to/database.db',            connStringExample: '/path/to/database.db' },
+  redis:      { label: 'Redis',      defaultPort: 6379,  icon: Layers,    color: 'text-red-500',    bgColor: 'bg-red-500/10',   borderColor: 'border-red-500/30',   placeholder: 'redis://localhost:6379',           connStringExample: 'redis://user:pass@host:6379/0' },
+  kafka:      { label: 'Kafka',      defaultPort: 9092,  icon: Radio,     color: 'text-amber-500',  bgColor: 'bg-amber-500/10', borderColor: 'border-amber-500/30', placeholder: 'kafka://localhost:9092',           connStringExample: 'kafka://user:pass@broker1:9092,broker2:9092' },
+  mssql:      { label: 'SQL Server', defaultPort: 1433,  icon: Server,    color: 'text-purple-500', bgColor: 'bg-purple-500/10', borderColor: 'border-purple-500/30', placeholder: 'mssql://localhost:1433',           connStringExample: 'mssql://user:pass@host:1433/database' },
 } as const
+
+/* ── Grouped DB types ──────────────────────────────────────────── */
+const DB_GROUPS: { label: string; types: DatabaseType[] }[] = [
+  { label: 'NoSQL',              types: ['mongodb'] },
+  { label: 'SQL',                types: ['postgresql', 'mysql', 'sqlite', 'mssql'] },
+  { label: 'Stream & Cache',     types: ['redis', 'kafka'] },
+]
 
 /* ── Supported DB types ──────────────────────────────────────── */
 const SUPPORTED_TYPES = new Set<DatabaseType>(['mongodb', 'postgresql', 'redis', 'kafka'])
-const DB_BTN_SOON = 'relative flex items-center gap-2 px-3 py-2 rounded text-xs font-medium border bg-background border-transparent text-muted-foreground/50 cursor-not-allowed transition-colors duration-100'
 
 /* ── Memoised single DB-type button ───────────────────────────── */
 const DbTypeButton = memo(({ type, selected, onSelect }: { type: DatabaseType; selected: boolean; onSelect: (t: DatabaseType) => void }) => {
@@ -43,13 +45,19 @@ const DbTypeButton = memo(({ type, selected, onSelect }: { type: DatabaseType; s
     <button
       type="button"
       onClick={() => !comingSoon && onSelect(type)}
-      className={comingSoon ? DB_BTN_SOON : (selected ? DB_BTN_ON : DB_BTN_OFF)}
       disabled={comingSoon}
+      className={`relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium border transition-all duration-150 ${
+        comingSoon
+          ? 'bg-muted/30 border-transparent text-muted-foreground/40 cursor-not-allowed'
+          : selected
+            ? `${cfg.bgColor} ${cfg.borderColor} ${cfg.color} shadow-sm`
+            : 'bg-background border-transparent hover:bg-accent text-muted-foreground hover:text-foreground'
+      }`}
     >
-      <Icon className={comingSoon ? 'h-3.5 w-3.5 text-muted-foreground/40' : (selected ? cfg.iconOn : `h-3.5 w-3.5 ${cfg.color}`)} />
+      <Icon className={`h-3.5 w-3.5 ${comingSoon ? 'text-muted-foreground/30' : cfg.color}`} />
       {cfg.label}
       {comingSoon && (
-        <span className="absolute -top-1.5 -right-1 text-[8px] font-bold bg-yellow-500/20 text-yellow-600 px-1 py-0.5 rounded leading-none">
+        <span className="absolute -top-1.5 -right-1 text-[7px] font-bold bg-yellow-500/20 text-yellow-600 px-1 py-0.5 rounded leading-none">
           SOON
         </span>
       )}
@@ -130,57 +138,65 @@ export const ConnectionForm = ({ onSubmit, onCancel, initialData }: ConnectionFo
   }, [fields.name, connStr, dbType, cfg.defaultPort, onSubmit])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-xl rounded-lg bg-card border shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onCancel}>
+      <div className="w-full max-w-lg rounded-xl bg-card border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b bg-sidebar">
-          <h2 className="text-sm font-semibold">{initialData ? 'Edit Connection' : 'New Connection'}</h2>
-          <button onClick={onCancel} className="p-1 rounded hover:bg-accent transition-colors">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
+          <div className="flex items-center gap-2.5">
+            <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${cfg.bgColor}`}>
+              {(() => { const Icon = cfg.icon; return <Icon className={`h-3.5 w-3.5 ${cfg.color}`} /> })()}
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold">{initialData ? 'Edit Connection' : 'New Connection'}</h2>
+              <p className="text-[10px] text-muted-foreground">{cfg.label}</p>
+            </div>
+          </div>
+          <button onClick={onCancel} className="p-1.5 rounded-lg hover:bg-accent transition-colors">
             <X className="h-4 w-4 text-muted-foreground" />
           </button>
         </div>
 
-        <div className="p-5 space-y-4">
-          {/* DB Type Selector */}
+        <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
+          {/* DB Type Selector — Grouped */}
+          <div className="space-y-3">
+            {DB_GROUPS.map(group => (
+              <div key={group.label}>
+                <span className="block text-[10px] font-semibold text-muted-foreground mb-1.5 uppercase tracking-widest">{group.label}</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {group.types.map(t => <DbTypeButton key={t} type={t} selected={dbType === t} onSelect={handleDbTypeChange} />)}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="border-t border-border/50" />
+
+          {/* Connection Name — always visible */}
           <div>
-            <span className="block text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Database Type</span>
-            <div className="grid grid-cols-3 gap-1.5">
-              {DB_TYPES.map(t => <DbTypeButton key={t} type={t} selected={dbType === t} onSelect={handleDbTypeChange} />)}
-            </div>
+            <label className={LABEL_CLS}>Connection Name</label>
+            <input className={INPUT_CLS} placeholder={`My ${cfg.label}`} value={fields.name} onChange={e => setField('name', e.target.value)} autoFocus />
+            {nameError && <p className="mt-1 text-[11px] text-destructive">{nameError}</p>}
           </div>
 
           {/* Tab Toggle — only show if DB supports connection string */}
           {hasConnStr && (
-            <div className="flex rounded-md border bg-sidebar p-0.5">
+            <div className="flex rounded-lg border bg-muted/30 p-0.5">
               <button type="button" onClick={() => setUseConnStr(false)} className={useConnStr ? TAB_INACTIVE : TAB_ACTIVE}>Parameters</button>
               <button type="button" onClick={() => setUseConnStr(true)} className={useConnStr ? TAB_ACTIVE : TAB_INACTIVE}>Connection String</button>
             </div>
           )}
 
           {useConnStr && hasConnStr ? (
-            <div className="space-y-3">
-              <div>
-                <label className={LABEL_CLS}>Name</label>
-                <input className={INPUT_CLS} placeholder={`My ${cfg.label}`} value={fields.name} onChange={e => setField('name', e.target.value)} />
-                {nameError && <p className="mt-1 text-[11px] text-destructive">{nameError}</p>}
-              </div>
-              <div>
-                <label className={LABEL_CLS}>Connection String</label>
-                <input className={`${INPUT_CLS} font-mono`} placeholder={cfg.placeholder} value={connStr} onChange={e => setConnStr(e.target.value)} />
-                <p className="mt-1 text-[11px] text-muted-foreground">e.g. {cfg.connStringExample}</p>
-              </div>
+            <div>
+              <label className={LABEL_CLS}>Connection String</label>
+              <input className={`${INPUT_CLS} font-mono text-xs`} placeholder={cfg.placeholder} value={connStr} onChange={e => setConnStr(e.target.value)} />
+              <p className="mt-1.5 text-[10px] text-muted-foreground/70">e.g. {cfg.connStringExample}</p>
             </div>
           ) : (
             <form id="connection-form" onSubmit={handleParamSubmit} className="space-y-3">
-              <div>
-                <label className={LABEL_CLS}>Name</label>
-                <input className={INPUT_CLS} placeholder={`My ${cfg.label}`} value={fields.name} onChange={e => setField('name', e.target.value)} />
-                {nameError && <p className="mt-1 text-[11px] text-destructive">{nameError}</p>}
-              </div>
-
               <Collapsible open={hasHostPort}>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2">
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="col-span-3">
                     <label className={LABEL_CLS}>Host</label>
                     <input className={INPUT_CLS} placeholder="localhost" value={fields.host} onChange={e => setField('host', e.target.value)} />
                   </div>
@@ -223,13 +239,18 @@ export const ConnectionForm = ({ onSubmit, onCancel, initialData }: ConnectionFo
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 px-5 py-3 border-t bg-sidebar">
-          <button className={BTN_OUTLINE_CLS} onClick={onCancel}>Cancel</button>
-          {useConnStr ? (
-            <button className={BTN_PRIMARY_CLS} onClick={handleConnStrSubmit}>Save Connection</button>
-          ) : (
-            <button type="submit" form="connection-form" className={BTN_PRIMARY_CLS}>Save Connection</button>
-          )}
+        <div className="flex items-center justify-between px-5 py-3 border-t bg-muted/30">
+          <p className="text-[10px] text-muted-foreground">
+            {SUPPORTED_TYPES.has(dbType) ? '✓ Ready to connect' : '⏳ Coming soon'}
+          </p>
+          <div className="flex gap-2">
+            <button className={BTN_OUTLINE_CLS} onClick={onCancel}>Cancel</button>
+            {useConnStr ? (
+              <button className={BTN_PRIMARY_CLS} onClick={handleConnStrSubmit}>Save</button>
+            ) : (
+              <button type="submit" form="connection-form" className={BTN_PRIMARY_CLS}>Save</button>
+            )}
+          </div>
         </div>
       </div>
     </div>

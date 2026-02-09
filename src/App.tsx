@@ -8,6 +8,7 @@ import { AggregationPage } from '@/features/aggregation/pages/AggregationPage'
 import { SchemaAnalyzerPage } from '@/features/schema-analyzer/pages/SchemaAnalyzerPage'
 import { ImportExportPage } from '@/features/import-export/pages/ImportExportPage'
 import { MonitoringPage } from '@/features/monitoring/pages/MonitoringPage'
+import { RedisToolsPage } from '@/features/redis-tools/pages/RedisToolsPage'
 import { useSettingsStore, resolveTheme, uiFontSizePx } from '@/store/settingsStore'
 import { ToastProvider } from '@/components/common/Toast'
 
@@ -47,6 +48,7 @@ function App() {
             <Route path="/schema-analyzer" element={<SchemaAnalyzerPage />} />
             <Route path="/import-export" element={<ImportExportPage />} />
             <Route path="/monitoring" element={<MonitoringPage />} />
+            <Route path="/redis-tools" element={<RedisToolsPage />} />
           </Routes>
         </MainLayout>
       </Router>
