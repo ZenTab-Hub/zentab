@@ -1,13 +1,13 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import fs from 'fs'
 import path from 'path'
-import { initStorage, saveConnection, getConnections, deleteConnection, saveQuery, getSavedQueries, deleteSavedQuery, addQueryHistory, getQueryHistory, getAppSetting, setAppSetting, deleteAppSetting } from './storage'
+import { initStorage, migratePasswords, saveConnection, getConnections, deleteConnection, saveQuery, getSavedQueries, deleteSavedQuery, addQueryHistory, getQueryHistory, getAppSetting, setAppSetting, deleteAppSetting } from './storage'
 import * as OTPAuth from 'otpauth'
 import QRCode from 'qrcode'
-import { connectToMongoDB, disconnectFromMongoDB, listDatabases, listCollections, executeQuery, insertDocument, updateDocument, deleteDocument, aggregate, getCollectionStats, mongoCreateDatabase, mongoDropDatabase, mongoCreateCollection, mongoDropCollection, mongoRenameCollection, mongoListIndexes, mongoCreateIndex, mongoDropIndex, explainQuery, getServerStatus } from './mongodb'
-import { connectToPostgreSQL, disconnectFromPostgreSQL, pgListDatabases, pgListTables, pgExecuteQuery, pgFindQuery, pgInsertDocument, pgUpdateDocument, pgDeleteDocument, pgAggregate, pgGetTableSchema, pgCreateDatabase, pgDropDatabase, pgCreateTable, pgDropTable, pgRenameTable, pgListIndexes, pgCreateIndex, pgDropIndex, pgExplainQuery, pgGetServerStats } from './postgresql'
-import { connectToRedis, disconnectFromRedis, redisListDatabases, redisListKeys, redisGetKeyValue, redisSetKey, redisDeleteKey, redisExecuteCommand, redisGetInfo, redisFlushDatabase, redisRenameKey, redisGetServerStats, redisGetSlowLog, redisGetClients, redisMemoryUsage, redisBulkDelete, redisBulkTTL, redisAddItem, redisRemoveItem, redisSubscribe, redisUnsubscribe, redisUnsubscribeAll, redisPublish, redisGetPubSubChannels, setPubSubMessageCallback } from './redis'
-import { connectToKafka, disconnectFromKafka, kafkaListTopics, kafkaGetTopicMetadata, kafkaConsumeMessages, kafkaProduceMessage, kafkaCreateTopic, kafkaDeleteTopic, kafkaGetClusterInfo } from './kafka'
+import { connectToMongoDB, disconnectFromMongoDB, pingMongoDB, listDatabases, listCollections, executeQuery, insertDocument, updateDocument, deleteDocument, aggregate, getCollectionStats, mongoCreateDatabase, mongoDropDatabase, mongoCreateCollection, mongoDropCollection, mongoRenameCollection, mongoListIndexes, mongoCreateIndex, mongoDropIndex, explainQuery, getServerStatus, disconnectAll as disconnectAllMongo } from './mongodb'
+import { connectToPostgreSQL, disconnectFromPostgreSQL, pingPostgreSQL, pgListDatabases, pgListTables, pgExecuteQuery, pgFindQuery, pgInsertDocument, pgUpdateDocument, pgDeleteDocument, pgAggregate, pgGetTableSchema, pgCreateDatabase, pgDropDatabase, pgCreateTable, pgDropTable, pgRenameTable, pgListIndexes, pgCreateIndex, pgDropIndex, pgExplainQuery, pgGetServerStats, disconnectAll as disconnectAllPg } from './postgresql'
+import { connectToRedis, disconnectFromRedis, pingRedis, redisListDatabases, redisListKeys, redisGetKeyValue, redisSetKey, redisDeleteKey, redisExecuteCommand, redisGetInfo, redisFlushDatabase, redisRenameKey, redisGetServerStats, redisGetSlowLog, redisGetClients, redisMemoryUsage, redisBulkDelete, redisBulkTTL, redisAddItem, redisRemoveItem, redisSubscribe, redisUnsubscribe, redisUnsubscribeAll, redisPublish, redisGetPubSubChannels, setPubSubMessageCallback, disconnectAll as disconnectAllRedis } from './redis'
+import { connectToKafka, disconnectFromKafka, pingKafka, kafkaListTopics, kafkaGetTopicMetadata, kafkaConsumeMessages, kafkaProduceMessage, kafkaCreateTopic, kafkaDeleteTopic, kafkaGetClusterInfo, disconnectAll as disconnectAllKafka } from './kafka'
 
 // Disable GPU acceleration for better compatibility
 app.disableHardwareAcceleration()
@@ -93,8 +93,9 @@ app.whenReady().then(() => {
     }
   }
 
-  // Initialize storage
+  // Initialize storage & migrate plaintext passwords
   initStorage()
+  migratePasswords()
 
   createWindow()
 
@@ -109,6 +110,18 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
+})
+
+// Graceful disconnect all database connections before quitting
+app.on('before-quit', async () => {
+  console.log('[App] Gracefully disconnecting all database connections...')
+  await Promise.allSettled([
+    disconnectAllMongo().catch(() => {}),
+    disconnectAllPg().catch(() => {}),
+    disconnectAllRedis().catch(() => {}),
+    disconnectAllKafka().catch(() => {}),
+  ])
+  console.log('[App] All connections closed.')
 })
 
 // IPC Handlers
@@ -451,6 +464,17 @@ ipcMain.handle('kafka:deleteTopic', async (_event, connectionId, topic) => {
 
 ipcMain.handle('kafka:getClusterInfo', async (_event, connectionId) => {
   return await kafkaGetClusterInfo(connectionId)
+})
+
+// Ping / Health Check IPC Handlers
+ipcMain.handle('db:ping', async (_event, connectionId: string, dbType: string) => {
+  switch (dbType) {
+    case 'mongodb': return await pingMongoDB(connectionId)
+    case 'postgresql': return await pingPostgreSQL(connectionId)
+    case 'redis': return await pingRedis(connectionId)
+    case 'kafka': return await pingKafka(connectionId)
+    default: return { success: false, error: `Unsupported database type: ${dbType}` }
+  }
 })
 
 // File dialog IPC Handlers

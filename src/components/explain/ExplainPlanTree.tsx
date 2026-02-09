@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ChevronRight, ChevronDown, Zap, Clock, Database, Search } from 'lucide-react'
+import { formatCompactNumber } from '@/utils/formatters'
 
 interface ExplainNodeProps {
   node: any
@@ -7,7 +8,7 @@ interface ExplainNodeProps {
   dbType: 'mongodb' | 'postgresql'
 }
 
-const formatNumber = (n: number) => n >= 1000000 ? `${(n / 1000000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n)
+const formatNumber = formatCompactNumber
 
 const getNodeColor = (cost: number, maxCost: number) => {
   if (maxCost === 0) return 'text-green-400'

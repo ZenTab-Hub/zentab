@@ -89,6 +89,18 @@ export const disconnectFromKafka = async (connectionId: string) => {
   }
 }
 
+export const pingKafka = async (connectionId: string) => {
+  try {
+    const conn = connections.get(connectionId)
+    if (!conn) return { success: false, error: 'Not connected' }
+    // List topics as a lightweight health check
+    await conn.admin.listTopics()
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
 export const kafkaListTopics = async (connectionId: string) => {
   const conn = connections.get(connectionId)
   if (!conn) throw new Error('Not connected to Kafka')
@@ -223,3 +235,10 @@ export const kafkaGetClusterInfo = async (connectionId: string) => {
   return { success: true, cluster }
 }
 
+
+
+/** Disconnect all Kafka connections (used on app quit) */
+export const disconnectAll = async () => {
+  const tasks = Array.from(connections.keys()).map((id) => disconnectFromKafka(id).catch(() => {}))
+  await Promise.allSettled(tasks)
+}

@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3'
 import path from 'path'
-import { app } from 'electron'
+import { app, safeStorage } from 'electron'
 import type { DatabaseConnection, SavedQuery } from '../src/types'
 
 let db: Database.Database | null = null
@@ -96,6 +96,71 @@ export const getStorage = () => {
   return db
 }
 
+// ── Password Encryption with safeStorage ──────────────────────
+const ENCRYPTED_PREFIX = 'enc::'
+
+const encryptString = (plaintext: string): string => {
+  if (!plaintext) return plaintext
+  try {
+    if (safeStorage.isEncryptionAvailable()) {
+      const encrypted = safeStorage.encryptString(plaintext)
+      return ENCRYPTED_PREFIX + encrypted.toString('base64')
+    }
+  } catch (e) {
+    console.warn('safeStorage encryption failed, storing as-is:', e)
+  }
+  return plaintext
+}
+
+const decryptString = (stored: string): string => {
+  if (!stored) return stored
+  if (!stored.startsWith(ENCRYPTED_PREFIX)) return stored // plaintext (legacy)
+  try {
+    if (safeStorage.isEncryptionAvailable()) {
+      const buf = Buffer.from(stored.slice(ENCRYPTED_PREFIX.length), 'base64')
+      return safeStorage.decryptString(buf)
+    }
+  } catch (e) {
+    console.warn('safeStorage decryption failed:', e)
+  }
+  return stored // fallback: return as-is
+}
+
+/** Migrate existing plaintext passwords to encrypted form */
+export const migratePasswords = () => {
+  if (!db) return
+  if (!safeStorage.isEncryptionAvailable()) {
+    console.warn('safeStorage not available — skipping password migration')
+    return
+  }
+
+  const rows = db.prepare('SELECT id, password, connectionString FROM connections').all() as any[]
+  const updateStmt = db.prepare('UPDATE connections SET password = ?, connectionString = ? WHERE id = ?')
+
+  let migrated = 0
+  for (const row of rows) {
+    let changed = false
+    let pwd = row.password
+    let cs = row.connectionString
+
+    if (pwd && !pwd.startsWith(ENCRYPTED_PREFIX)) {
+      pwd = encryptString(pwd)
+      changed = true
+    }
+    if (cs && !cs.startsWith(ENCRYPTED_PREFIX)) {
+      cs = encryptString(cs)
+      changed = true
+    }
+    if (changed) {
+      updateStmt.run(pwd, cs, row.id)
+      migrated++
+    }
+  }
+  if (migrated > 0) {
+    console.log(`[Storage] Migrated ${migrated} connection(s) to encrypted passwords`)
+  }
+}
+
 // Connection operations
 export const saveConnection = (connection: DatabaseConnection) => {
   const db = getStorage()
@@ -113,6 +178,10 @@ export const saveConnection = (connection: DatabaseConnection) => {
     ? connection.updatedAt.toISOString()
     : connection.updatedAt
 
+  // Encrypt sensitive fields before storing
+  const encPassword = connection.password ? encryptString(connection.password) : null
+  const encConnectionString = connection.connectionString ? encryptString(connection.connectionString) : null
+
   stmt.run(
     connection.id,
     connection.name,
@@ -120,10 +189,10 @@ export const saveConnection = (connection: DatabaseConnection) => {
     connection.host || null,
     connection.port || null,
     connection.username || null,
-    connection.password || null,
+    encPassword,
     connection.authDatabase || null,
     connection.database || null,
-    connection.connectionString || null,
+    encConnectionString,
     createdAt,
     updatedAt
   )
@@ -134,7 +203,14 @@ export const saveConnection = (connection: DatabaseConnection) => {
 export const getConnections = (): DatabaseConnection[] => {
   const db = getStorage()
   const stmt = db.prepare('SELECT * FROM connections ORDER BY updatedAt DESC')
-  return stmt.all() as DatabaseConnection[]
+  const rows = stmt.all() as DatabaseConnection[]
+
+  // Decrypt sensitive fields after reading
+  return rows.map((row) => ({
+    ...row,
+    password: row.password ? decryptString(row.password) : row.password,
+    connectionString: row.connectionString ? decryptString(row.connectionString) : row.connectionString,
+  }))
 }
 
 export const deleteConnection = (id: string) => {

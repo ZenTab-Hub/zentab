@@ -3,6 +3,7 @@ import { Activity, RefreshCw, Wifi, WifiOff, HardDrive, Cpu, Database, ArrowUpDo
 import { useConnectionStore } from '@/store/connectionStore'
 import { databaseService } from '@/services/database.service'
 import { DatabaseIcon } from '@/components/common/DatabaseIcon'
+import { formatBytes, formatCompactNumber, formatUptime } from '@/utils/formatters'
 
 const INTERVALS = [
   { label: '5s', value: 5000 },
@@ -23,24 +24,7 @@ const StatCard = ({ icon: Icon, label, value, sub, color = 'text-blue-400' }: { 
   </div>
 )
 
-const formatBytes = (bytes: number) => {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`
-}
-
-const formatUptime = (seconds: number) => {
-  const d = Math.floor(seconds / 86400)
-  const h = Math.floor((seconds % 86400) / 3600)
-  const m = Math.floor((seconds % 3600) / 60)
-  if (d > 0) return `${d}d ${h}h ${m}m`
-  if (h > 0) return `${h}h ${m}m`
-  return `${m}m ${seconds % 60}s`
-}
-
-const formatNumber = (n: number) => n >= 1000000 ? `${(n / 1000000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n)
+const formatNumber = formatCompactNumber
 
 export const MonitoringPage = () => {
   const { activeConnectionId, getActiveConnection } = useConnectionStore()

@@ -1,5 +1,6 @@
 // Electron API types
 export interface ElectronAPI {
+  ping: (connectionId: string, dbType: string) => Promise<{ success: boolean; error?: string }>
   mongodb: {
     connect: (connection: any) => Promise<any>
     disconnect: (connectionId: string) => Promise<any>

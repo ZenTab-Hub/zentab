@@ -7,6 +7,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getVersion: () => ipcRenderer.invoke('app:getVersion'),
   getPath: (name: string) => ipcRenderer.invoke('app:getPath', name),
 
+  // Health check / ping
+  ping: (connectionId: string, dbType: string) =>
+    ipcRenderer.invoke('db:ping', connectionId, dbType),
+
   // MongoDB operations (will be implemented)
   mongodb: {
     connect: (connectionId: string, connectionString: string) =>
@@ -241,6 +245,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 export interface ElectronAPI {
   getVersion: () => Promise<string>
   getPath: (name: string) => Promise<string>
+  ping: (connectionId: string, dbType: string) => Promise<{ success: boolean; error?: string }>
   mongodb: {
     connect: (connectionId: string, connectionString: string) => Promise<any>
     disconnect: (connectionId: string) => Promise<void>

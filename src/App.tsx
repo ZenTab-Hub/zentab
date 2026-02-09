@@ -12,6 +12,7 @@ import { RedisToolsPage } from '@/features/redis-tools/pages/RedisToolsPage'
 import { useSettingsStore, resolveTheme, uiFontSizePx } from '@/store/settingsStore'
 import { useSecurityStore } from '@/store/securityStore'
 import { LockScreen } from '@/components/security/LockScreen'
+import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { ToastProvider } from '@/components/common/Toast'
 
 function App() {
@@ -77,14 +78,14 @@ function App() {
       <Router>
         <MainLayout>
           <Routes>
-            <Route path="/" element={<ConnectionsPage />} />
-            <Route path="/query-editor" element={<QueryEditorPage />} />
-            <Route path="/data-viewer" element={<DataViewerPage />} />
-            <Route path="/aggregation" element={<AggregationPage />} />
-            <Route path="/schema-analyzer" element={<SchemaAnalyzerPage />} />
-            <Route path="/import-export" element={<ImportExportPage />} />
-            <Route path="/monitoring" element={<MonitoringPage />} />
-            <Route path="/redis-tools" element={<RedisToolsPage />} />
+            <Route path="/" element={<ErrorBoundary featureName="Connections"><ConnectionsPage /></ErrorBoundary>} />
+            <Route path="/query-editor" element={<ErrorBoundary featureName="Query Editor"><QueryEditorPage /></ErrorBoundary>} />
+            <Route path="/data-viewer" element={<ErrorBoundary featureName="Data Viewer"><DataViewerPage /></ErrorBoundary>} />
+            <Route path="/aggregation" element={<ErrorBoundary featureName="Aggregation"><AggregationPage /></ErrorBoundary>} />
+            <Route path="/schema-analyzer" element={<ErrorBoundary featureName="Schema Analyzer"><SchemaAnalyzerPage /></ErrorBoundary>} />
+            <Route path="/import-export" element={<ErrorBoundary featureName="Import/Export"><ImportExportPage /></ErrorBoundary>} />
+            <Route path="/monitoring" element={<ErrorBoundary featureName="Monitoring"><MonitoringPage /></ErrorBoundary>} />
+            <Route path="/redis-tools" element={<ErrorBoundary featureName="Redis Tools"><RedisToolsPage /></ErrorBoundary>} />
           </Routes>
         </MainLayout>
       </Router>

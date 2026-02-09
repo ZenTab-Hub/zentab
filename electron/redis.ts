@@ -65,6 +65,17 @@ export const disconnectFromRedis = async (connectionId: string) => {
   }
 }
 
+export const pingRedis = async (connectionId: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) return { success: false, error: 'Not connected' }
+    const result = await connection.client.ping()
+    return { success: result === 'PONG' }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
 /** List databases (Redis db indices 0-15) */
 export const redisListDatabases = async (connectionId: string) => {
   try {
@@ -732,3 +743,10 @@ function parseRedisCommand(input: string): string[] {
   return parts
 }
 
+
+
+/** Disconnect all Redis connections (used on app quit) */
+export const disconnectAll = async () => {
+  const tasks = Array.from(connections.keys()).map((id) => disconnectFromRedis(id).catch(() => {}))
+  await Promise.allSettled(tasks)
+}

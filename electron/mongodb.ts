@@ -49,6 +49,17 @@ export const disconnectFromMongoDB = async (connectionId: string) => {
   }
 }
 
+export const pingMongoDB = async (connectionId: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) return { success: false, error: 'Not connected' }
+    await connection.client.db('admin').command({ ping: 1 })
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
 export const listDatabases = async (connectionId: string) => {
   try {
     const connection = connections.get(connectionId)
@@ -452,3 +463,10 @@ export const getServerStatus = async (connectionId: string) => {
   }
 }
 
+
+
+/** Disconnect all MongoDB connections (used on app quit) */
+export const disconnectAll = async () => {
+  const tasks = Array.from(connections.keys()).map((id) => disconnectFromMongoDB(id).catch(() => {}))
+  await Promise.allSettled(tasks)
+}

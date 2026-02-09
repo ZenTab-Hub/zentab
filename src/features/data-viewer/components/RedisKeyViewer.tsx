@@ -4,6 +4,7 @@ import { Input } from '@/components/common/Input'
 import { useConnectionStore } from '@/store/connectionStore'
 import { databaseService } from '@/services/database.service'
 import { useToast } from '@/components/common/Toast'
+import { formatBytes } from '@/utils/formatters'
 
 const TYPE_COLORS: Record<string, string> = {
   string: 'bg-green-500/15 text-green-400',
@@ -169,12 +170,6 @@ export const RedisKeyViewer = () => {
     } finally {
       setCreatingLoading(false)
     }
-  }
-
-  const formatBytes = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
   const formatTTL = (ttl: number) => {

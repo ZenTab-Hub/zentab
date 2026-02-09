@@ -55,6 +55,19 @@ export const disconnectFromPostgreSQL = async (connectionId: string) => {
   }
 }
 
+export const pingPostgreSQL = async (connectionId: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) return { success: false, error: 'Not connected' }
+    const client = await connection.pool.connect()
+    await client.query('SELECT 1')
+    client.release()
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
 export const pgListDatabases = async (connectionId: string) => {
   try {
     const connection = connections.get(connectionId)
@@ -504,4 +517,10 @@ function buildWhereClause(filter: any): { whereClause: string; values: any[] } {
   })
 
   return { whereClause: `WHERE ${conditions.join(' AND ')}`, values }
+}
+
+/** Disconnect all PostgreSQL connections (used on app quit) */
+export const disconnectAll = async () => {
+  const tasks = Array.from(connections.keys()).map((id) => disconnectFromPostgreSQL(id).catch(() => {}))
+  await Promise.allSettled(tasks)
 }
