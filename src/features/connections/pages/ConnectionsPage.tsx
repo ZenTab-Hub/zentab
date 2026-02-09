@@ -1,16 +1,15 @@
 import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
-import { Button } from '@/components/common/Button'
 import { ConnectionForm } from '../components/ConnectionForm'
 import { ConnectionList } from '../components/ConnectionList'
 import { useConnectionStore } from '@/store/connectionStore'
 import { storageService } from '@/services/storage.service'
-import { mongodbService } from '@/services/mongodb.service'
-import type { MongoDBConnection } from '@/types'
+import { databaseService } from '@/services/database.service'
+import type { DatabaseConnection } from '@/types'
 
 export const ConnectionsPage = () => {
   const [showForm, setShowForm] = useState(false)
-  const [editingConnection, setEditingConnection] = useState<MongoDBConnection | null>(null)
+  const [editingConnection, setEditingConnection] = useState<DatabaseConnection | null>(null)
   const [loading, setLoading] = useState(false)
 
   const { connections, setConnections, addConnection, updateConnection, deleteConnection, setActiveConnection, activeConnectionId } =
@@ -34,14 +33,16 @@ export const ConnectionsPage = () => {
     try {
       setLoading(true)
 
-      const connection: MongoDBConnection = {
+      const connection: DatabaseConnection = {
         id: editingConnection?.id || Date.now().toString(),
         name: data.name,
+        type: data.type || 'mongodb',
         host: data.host || '',
         port: data.port || 27017,
         username: data.username,
         password: data.password,
         authDatabase: data.authDatabase,
+        database: data.database,
         connectionString: data.connectionString,
         createdAt: editingConnection?.createdAt || new Date() as any,
         updatedAt: new Date() as any,
@@ -69,42 +70,60 @@ export const ConnectionsPage = () => {
     }
   }
 
-  const handleConnect = async (connection: MongoDBConnection) => {
+  const buildConnectionString = (connection: DatabaseConnection): string => {
+    // Use connection string directly if provided
+    if (connection.connectionString && connection.connectionString.trim()) {
+      return connection.connectionString.trim()
+    }
+
+    if (!connection.host || !connection.host.trim()) {
+      throw new Error('Missing connection string or host')
+    }
+
+    const auth = connection.username && connection.password
+      ? `${encodeURIComponent(connection.username)}:${encodeURIComponent(connection.password)}@`
+      : ''
+    const dbType = connection.type || 'mongodb'
+
+    if (dbType === 'postgresql') {
+      const database = connection.database || 'postgres'
+      const sslParam = connection.ssl ? '?sslmode=require' : ''
+      return `postgresql://${auth}${connection.host}:${connection.port || 5432}/${database}${sslParam}`
+    }
+
+    if (dbType === 'redis') {
+      const db = connection.database ? `/${connection.database}` : ''
+      return `redis://${auth}${connection.host}:${connection.port || 6379}${db}`
+    }
+
+    if (dbType === 'kafka') {
+      return `kafka://${auth}${connection.host}:${connection.port || 9092}`
+    }
+
+    // MongoDB
+    const authDb = connection.authDatabase ? `?authSource=${connection.authDatabase}` : ''
+    return `mongodb://${auth}${connection.host}:${connection.port || 27017}${authDb}`
+  }
+
+  const handleConnect = async (connection: DatabaseConnection) => {
     try {
       setLoading(true)
-
       console.log('Connection object:', connection)
 
-      // Build connection string
-      let connectionString = ''
-      if (connection.connectionString && connection.connectionString.trim()) {
-        // Use connection string directly
-        connectionString = connection.connectionString.trim()
-        console.log('Using connection string:', connectionString)
-      } else if (connection.host && connection.host.trim()) {
-        // Build from individual fields
-        const auth = connection.username && connection.password
-          ? `${encodeURIComponent(connection.username)}:${encodeURIComponent(connection.password)}@`
-          : ''
-        const authDb = connection.authDatabase ? `?authSource=${connection.authDatabase}` : ''
-        connectionString = `mongodb://${auth}${connection.host}:${connection.port}${authDb}`
-        console.log('Built connection string:', connectionString)
-      } else {
-        console.error('Invalid connection:', connection)
-        alert('Invalid connection: missing connection string or host')
-        setLoading(false)
-        return
-      }
+      const connectionString = buildConnectionString(connection)
+      console.log('Built connection string:', connectionString)
 
-      // Connect via IPC
-      const result: any = await mongodbService.connect(connection.id, connectionString)
+      const dbType = connection.type || 'mongodb'
+
+      // Connect via unified service
+      const result: any = await databaseService.connect(connection.id, connectionString, dbType)
 
       if (result.success) {
         setActiveConnection(connection.id)
         alert('Connected successfully!')
 
         // Load databases
-        const dbResult: any = await mongodbService.listDatabases(connection.id)
+        const dbResult: any = await databaseService.listDatabases(connection.id, dbType)
         if (dbResult.success) {
           console.log('Databases:', dbResult.databases)
         }
@@ -122,7 +141,9 @@ export const ConnectionsPage = () => {
   const handleDisconnect = async (connectionId: string) => {
     try {
       setLoading(true)
-      const result: any = await mongodbService.disconnect(connectionId)
+      const connection = connections.find(c => c.id === connectionId)
+      const dbType = connection?.type || 'mongodb'
+      const result: any = await databaseService.disconnect(connectionId, dbType)
 
       if (result && result.success) {
         if (activeConnectionId === connectionId) {
@@ -140,7 +161,7 @@ export const ConnectionsPage = () => {
     }
   }
 
-  const handleEdit = (connection: MongoDBConnection) => {
+  const handleEdit = (connection: DatabaseConnection) => {
     setEditingConnection(connection)
     setShowForm(true)
   }
@@ -163,35 +184,46 @@ export const ConnectionsPage = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="h-full flex flex-col">
+      {/* Page Header */}
+      <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-3xl font-bold">Connections</h1>
-          <p className="text-muted-foreground">Manage your MongoDB connections</p>
+          <h1 className="text-lg font-semibold">Connections</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">Manage your database connections</p>
         </div>
-        <Button onClick={() => setShowForm(true)} disabled={loading}>
-          <Plus className="mr-2 h-4 w-4" />
+        <button
+          onClick={() => setShowForm(true)}
+          disabled={loading}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+        >
+          <Plus className="h-3.5 w-3.5" />
           New Connection
-        </Button>
+        </button>
       </div>
 
       {loading && (
-        <div className="rounded-lg border bg-card p-4 text-center">
-          <p className="text-sm text-muted-foreground">Loading...</p>
+        <div className="rounded-md border bg-card p-3 text-center mb-4">
+          <p className="text-xs text-muted-foreground">Connecting...</p>
         </div>
       )}
 
       {connections.length === 0 ? (
-        <div className="rounded-lg border bg-card p-8 text-center">
-          <div className="mx-auto max-w-md">
-            <h3 className="mb-2 text-lg font-semibold">No connections yet</h3>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Get started by creating your first MongoDB connection
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center max-w-sm">
+            <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
+              <Plus className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <h3 className="text-sm font-semibold mb-1">No connections yet</h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              Create your first database connection to get started
             </p>
-            <Button onClick={() => setShowForm(true)}>
-              <Plus className="mr-2 h-4 w-4" />
+            <button
+              onClick={() => setShowForm(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
               Create Connection
-            </Button>
+            </button>
           </div>
         </div>
       ) : (

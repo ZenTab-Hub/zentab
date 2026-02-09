@@ -1,7 +1,12 @@
-// AI Service for converting natural language to MongoDB queries
+// AI Service for converting natural language to MongoDB queries and general chat
 // Supports: DeepSeek, OpenAI GPT, Google Gemini, Custom providers
 
 import type { AIModel } from '@/store/aiSettingsStore'
+
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant'
+  content: string
+}
 
 const AI_CONFIGS = {
   deepseek: {
@@ -234,6 +239,130 @@ Output: {"filter": {}, "options": {}}`
           maxOutputTokens: 500,
         },
       }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error?.message || `API error: ${response.status}`)
+    }
+
+    const data = await response.json()
+    return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
+  }
+
+  /**
+   * Stream a chat response from the AI model.
+   * Calls onChunk with each text chunk as it arrives.
+   * Returns the full response text when done.
+   */
+  async chatStream(
+    messages: ChatMessage[],
+    model: AIModel,
+    onChunk: (chunk: string) => void,
+    signal?: AbortSignal
+  ): Promise<string> {
+    if (!model?.apiKey) {
+      throw new Error('No AI model configured. Please add one in Settings → AI Models.')
+    }
+
+    const config = this.getConfig(model)
+
+    if (model.provider === 'gemini') {
+      // Gemini doesn't support streaming in the same way, use non-streaming
+      return this.chatGeminiNonStream(messages, model)
+    }
+
+    // OpenAI-compatible streaming (DeepSeek, OpenAI, Custom)
+    const response = await fetch(config.url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${model.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: config.model,
+        messages,
+        temperature: 0.7,
+        max_tokens: 4096,
+        stream: true,
+      }),
+      signal,
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error?.message || `API error: ${response.status}`)
+    }
+
+    const reader = response.body?.getReader()
+    if (!reader) throw new Error('No response body')
+
+    const decoder = new TextDecoder()
+    let fullText = ''
+    let buffer = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed || !trimmed.startsWith('data: ')) continue
+        const data = trimmed.slice(6)
+        if (data === '[DONE]') continue
+
+        try {
+          const parsed = JSON.parse(data)
+          const content = parsed.choices?.[0]?.delta?.content
+          if (content) {
+            fullText += content
+            onChunk(content)
+          }
+        } catch {
+          // skip malformed chunks
+        }
+      }
+    }
+
+    return fullText
+  }
+
+  private async chatGeminiNonStream(
+    messages: ChatMessage[],
+    model: AIModel
+  ): Promise<string> {
+    const config = this.getConfig(model)
+    const url = `${config.url}?key=${model.apiKey}`
+
+    // Convert messages to Gemini format
+    const systemMsg = messages.find(m => m.role === 'system')
+    const chatMessages = messages.filter(m => m.role !== 'system')
+
+    const contents = chatMessages.map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    }))
+
+    const body: any = {
+      contents,
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 4096,
+      },
+    }
+
+    if (systemMsg) {
+      body.systemInstruction = { parts: [{ text: systemMsg.content }] }
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
     })
 
     if (!response.ok) {

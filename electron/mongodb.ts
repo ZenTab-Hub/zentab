@@ -216,6 +216,38 @@ export const deleteDocument = async (
   }
 }
 
+export const aggregate = async (
+  connectionId: string,
+  database: string,
+  collection: string,
+  pipeline: any[]
+) => {
+  try {
+    console.log('aggregate called:', { connectionId, database, collection, pipeline })
+
+    const connection = connections.get(connectionId)
+    if (!connection) {
+      throw new Error('Not connected')
+    }
+
+    const db = connection.client.db(database)
+    const coll = db.collection(collection)
+
+    console.log('Executing aggregation pipeline:', JSON.stringify(pipeline, null, 2))
+    const documents = await coll.aggregate(pipeline).toArray()
+
+    console.log('Aggregation result:', { returnedCount: documents.length })
+
+    return {
+      success: true,
+      documents,
+    }
+  } catch (error: any) {
+    console.error('Aggregate error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
 export const getCollectionStats = async (
   connectionId: string,
   database: string,
@@ -236,6 +268,136 @@ export const getCollectionStats = async (
     }
   } catch (error: any) {
     console.error('Get collection stats error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+/* ── Database Management ──────────────────────────────── */
+
+export const mongoCreateDatabase = async (connectionId: string, database: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    // MongoDB creates databases implicitly when you write to them
+    // Create a temp collection then drop it to register the database
+    const db = connection.client.db(database)
+    await db.createCollection('__queryai_init__')
+    await db.dropCollection('__queryai_init__')
+
+    return { success: true }
+  } catch (error: any) {
+    console.error('Create database error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export const mongoDropDatabase = async (connectionId: string, database: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    await connection.client.db(database).dropDatabase()
+    return { success: true }
+  } catch (error: any) {
+    console.error('Drop database error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export const mongoCreateCollection = async (
+  connectionId: string,
+  database: string,
+  collection: string,
+  options?: { capped?: boolean; size?: number; max?: number }
+) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const db = connection.client.db(database)
+    await db.createCollection(collection, options || {})
+    return { success: true }
+  } catch (error: any) {
+    console.error('Create collection error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export const mongoDropCollection = async (connectionId: string, database: string, collection: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    await connection.client.db(database).dropCollection(collection)
+    return { success: true }
+  } catch (error: any) {
+    console.error('Drop collection error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export const mongoRenameCollection = async (
+  connectionId: string,
+  database: string,
+  oldName: string,
+  newName: string
+) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    await connection.client.db(database).renameCollection(oldName, newName)
+    return { success: true }
+  } catch (error: any) {
+    console.error('Rename collection error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+/* ── Index Management ─────────────────────────────────── */
+
+export const mongoListIndexes = async (connectionId: string, database: string, collection: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const indexes = await connection.client.db(database).collection(collection).listIndexes().toArray()
+    return { success: true, indexes }
+  } catch (error: any) {
+    console.error('List indexes error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export const mongoCreateIndex = async (
+  connectionId: string,
+  database: string,
+  collection: string,
+  keys: any,
+  options?: { name?: string; unique?: boolean; sparse?: boolean; expireAfterSeconds?: number; background?: boolean }
+) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const result = await connection.client.db(database).collection(collection).createIndex(keys, options || {})
+    return { success: true, indexName: result }
+  } catch (error: any) {
+    console.error('Create index error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export const mongoDropIndex = async (connectionId: string, database: string, collection: string, indexName: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    await connection.client.db(database).collection(collection).dropIndex(indexName)
+    return { success: true }
+  } catch (error: any) {
+    console.error('Drop index error:', error)
     return { success: false, error: error.message }
   }
 }

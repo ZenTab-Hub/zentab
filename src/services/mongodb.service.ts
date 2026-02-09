@@ -93,6 +93,27 @@ class MongoDBService {
     return this.callElectronAPI('getCollectionStats', connectionId, dbName, collectionName)
   }
 
+  // Database management
+  async createDatabase(connectionId: string, database: string): Promise<any> {
+    return this.callElectronAPI('createDatabase', connectionId, database)
+  }
+
+  async dropDatabase(connectionId: string, database: string): Promise<any> {
+    return this.callElectronAPI('dropDatabase', connectionId, database)
+  }
+
+  async createCollection(connectionId: string, database: string, collection: string, options?: any): Promise<any> {
+    return this.callElectronAPI('createCollection', connectionId, database, collection, options)
+  }
+
+  async dropCollection(connectionId: string, database: string, collection: string): Promise<any> {
+    return this.callElectronAPI('dropCollection', connectionId, database, collection)
+  }
+
+  async renameCollection(connectionId: string, database: string, oldName: string, newName: string): Promise<any> {
+    return this.callElectronAPI('renameCollection', connectionId, database, oldName, newName)
+  }
+
   async createIndex(
     connectionId: string,
     dbName: string,

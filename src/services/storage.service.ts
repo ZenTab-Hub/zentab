@@ -3,7 +3,7 @@
  * This service handles local storage operations (SQLite) through Electron IPC
  */
 
-import { MongoDBConnection, SavedQuery } from '@/types'
+import { DatabaseConnection, SavedQuery } from '@/types'
 
 class StorageService {
   private async callElectronAPI<T>(method: string, ...args: any[]): Promise<T> {
@@ -14,11 +14,11 @@ class StorageService {
   }
 
   // Connection management
-  async saveConnection(connection: MongoDBConnection): Promise<MongoDBConnection> {
+  async saveConnection(connection: DatabaseConnection): Promise<DatabaseConnection> {
     return this.callElectronAPI('saveConnection', connection)
   }
 
-  async getConnections(): Promise<MongoDBConnection[]> {
+  async getConnections(): Promise<DatabaseConnection[]> {
     return this.callElectronAPI('getConnections')
   }
 
@@ -29,6 +29,14 @@ class StorageService {
   // Query management
   async saveQuery(query: SavedQuery): Promise<SavedQuery> {
     return this.callElectronAPI('saveQuery', query)
+  }
+
+  async deleteSavedQuery(id: string): Promise<void> {
+    return this.callElectronAPI('deleteSavedQuery', id)
+  }
+
+  async addQueryHistory(history: any): Promise<void> {
+    return this.callElectronAPI('addQueryHistory', history)
   }
 
   async getQueryHistory(limit = 100): Promise<any[]> {

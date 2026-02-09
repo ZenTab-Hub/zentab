@@ -1,8 +1,8 @@
 {
-  "name": "mongostudio",
-  "productName": "MongoStudio",
+  "name": "queryai",
+  "productName": "QueryAI",
   "version": "1.0.0",
-  "description": "A modern MongoDB GUI client with AI-powered query assistant",
+  "description": "A modern database GUI client with AI-powered query assistant",
   "main": "dist-electron/main.js",
   "author": "MinBeSo",
   "license": "MIT",
@@ -23,11 +23,16 @@
     "@hookform/resolvers": "^3.3.3",
     "@monaco-editor/react": "^4.6.0",
     "@tanstack/react-query": "^5.17.0",
+    "@types/ioredis": "^4.28.10",
+    "@types/pg": "^8.16.0",
     "better-sqlite3": "^11.7.0",
     "clsx": "^2.1.0",
     "date-fns": "^3.0.6",
+    "ioredis": "^5.9.2",
+    "kafkajs": "^2.2.4",
     "lucide-react": "^0.303.0",
     "mongodb": "^6.3.0",
+    "pg": "^8.18.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.49.0",
@@ -63,8 +68,8 @@
     "wait-on": "^7.2.0"
   },
   "build": {
-    "appId": "com.minbeso.mongostudio",
-    "productName": "MongoStudio",
+    "appId": "com.minbeso.queryai",
+    "productName": "QueryAI",
     "directories": {
       "output": "release"
     },

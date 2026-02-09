@@ -1,43 +1,42 @@
 import { Upload, Download } from 'lucide-react'
-import { Button } from '@/components/common/Button'
 
 export const ImportExportPage = () => {
   return (
-    <div className="space-y-6">
+    <div className="h-full flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-bold">Import / Export</h1>
-        <p className="text-muted-foreground">Import and export data in various formats</p>
+        <h1 className="text-lg font-semibold">Import / Export</h1>
+        <p className="text-xs text-muted-foreground mt-0.5">Import and export data in various formats</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2">
         {/* Import Card */}
-        <div className="rounded-lg border bg-card p-6">
-          <div className="mb-4 flex items-center">
-            <Upload className="mr-2 h-6 w-6 text-primary" />
-            <h2 className="text-xl font-semibold">Import Data</h2>
+        <div className="rounded-md border bg-card p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <Upload className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold">Import Data</span>
           </div>
-          <p className="mb-4 text-sm text-muted-foreground">
+          <p className="mb-3 text-xs text-muted-foreground">
             Import data from JSON, CSV, Excel, or SQL files
           </p>
-          <Button className="w-full">
-            <Upload className="mr-2 h-4 w-4" />
+          <button className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-medium rounded-md border hover:bg-accent transition-colors">
+            <Upload className="h-3.5 w-3.5" />
             Choose File to Import
-          </Button>
+          </button>
         </div>
 
         {/* Export Card */}
-        <div className="rounded-lg border bg-card p-6">
-          <div className="mb-4 flex items-center">
-            <Download className="mr-2 h-6 w-6 text-primary" />
-            <h2 className="text-xl font-semibold">Export Data</h2>
+        <div className="rounded-md border bg-card p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <Download className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold">Export Data</span>
           </div>
-          <p className="mb-4 text-sm text-muted-foreground">
+          <p className="mb-3 text-xs text-muted-foreground">
             Export data to JSON, CSV, Excel, or SQL format
           </p>
-          <Button className="w-full">
-            <Download className="mr-2 h-4 w-4" />
-            Export Collection
-          </Button>
+          <button className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-medium rounded-md border hover:bg-accent transition-colors">
+            <Download className="h-3.5 w-3.5" />
+            Export Data
+          </button>
         </div>
       </div>
     </div>

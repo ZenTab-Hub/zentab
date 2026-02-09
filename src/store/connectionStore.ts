@@ -1,23 +1,23 @@
 import { create } from 'zustand'
-import { MongoDBConnection, ConnectionStatus } from '@/types'
+import { DatabaseConnection, ConnectionStatus } from '@/types'
 
 interface ConnectionState {
-  connections: MongoDBConnection[]
+  connections: DatabaseConnection[]
   activeConnectionId: string | null
   connectionStatuses: Map<string, ConnectionStatus>
   selectedDatabase: string | null
   selectedCollection: string | null
 
   // Actions
-  setConnections: (connections: MongoDBConnection[]) => void
-  addConnection: (connection: MongoDBConnection) => void
-  updateConnection: (id: string, connection: Partial<MongoDBConnection>) => void
+  setConnections: (connections: DatabaseConnection[]) => void
+  addConnection: (connection: DatabaseConnection) => void
+  updateConnection: (id: string, connection: Partial<DatabaseConnection>) => void
   deleteConnection: (id: string) => void
   setActiveConnection: (id: string | null) => void
   setConnectionStatus: (id: string, status: ConnectionStatus) => void
   setSelectedDatabase: (database: string | null) => void
   setSelectedCollection: (collection: string | null) => void
-  getActiveConnection: () => MongoDBConnection | null
+  getActiveConnection: () => DatabaseConnection | null
   getConnectionStatus: (id: string) => ConnectionStatus | null
 }
 

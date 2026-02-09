@@ -1,13 +1,13 @@
 import Database from 'better-sqlite3'
 import path from 'path'
 import { app } from 'electron'
-import type { MongoDBConnection, SavedQuery } from '../src/types'
+import type { DatabaseConnection, SavedQuery } from '../src/types'
 
 let db: Database.Database | null = null
 
 export const initStorage = () => {
   const userDataPath = app.getPath('userData')
-  const dbPath = path.join(userDataPath, 'mongodb-gui.db')
+  const dbPath = path.join(userDataPath, 'queryai.db')
 
   console.log('Initializing storage at:', dbPath)
 
@@ -21,11 +21,13 @@ export const initStorage = () => {
     CREATE TABLE IF NOT EXISTS connections (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
+      type TEXT DEFAULT 'mongodb',
       host TEXT,
       port INTEGER,
       username TEXT,
       password TEXT,
       authDatabase TEXT,
+      database TEXT,
       connectionString TEXT,
       sshTunnel TEXT,
       ssl TEXT,
@@ -62,6 +64,22 @@ export const initStorage = () => {
     );
   `)
 
+  // Migration: add type and database columns if they don't exist
+  try {
+    const tableInfo = db.pragma('table_info(connections)') as any[]
+    const columns = tableInfo.map((col: any) => col.name)
+    if (!columns.includes('type')) {
+      db.exec("ALTER TABLE connections ADD COLUMN type TEXT DEFAULT 'mongodb'")
+      console.log('Migration: added type column to connections')
+    }
+    if (!columns.includes('database')) {
+      db.exec("ALTER TABLE connections ADD COLUMN database TEXT")
+      console.log('Migration: added database column to connections')
+    }
+  } catch (e) {
+    console.warn('Migration check failed:', e)
+  }
+
   console.log('Storage initialized at:', dbPath)
   return db
 }
@@ -74,12 +92,12 @@ export const getStorage = () => {
 }
 
 // Connection operations
-export const saveConnection = (connection: MongoDBConnection) => {
+export const saveConnection = (connection: DatabaseConnection) => {
   const db = getStorage()
   const stmt = db.prepare(`
     INSERT OR REPLACE INTO connections
-    (id, name, host, port, username, password, authDatabase, connectionString, createdAt, updatedAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (id, name, type, host, port, username, password, authDatabase, database, connectionString, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
 
   // Convert Date to ISO string for SQLite
@@ -93,11 +111,13 @@ export const saveConnection = (connection: MongoDBConnection) => {
   stmt.run(
     connection.id,
     connection.name,
+    connection.type || 'mongodb',
     connection.host || null,
     connection.port || null,
     connection.username || null,
     connection.password || null,
     connection.authDatabase || null,
+    connection.database || null,
     connection.connectionString || null,
     createdAt,
     updatedAt
@@ -106,10 +126,10 @@ export const saveConnection = (connection: MongoDBConnection) => {
   return connection
 }
 
-export const getConnections = (): MongoDBConnection[] => {
+export const getConnections = (): DatabaseConnection[] => {
   const db = getStorage()
   const stmt = db.prepare('SELECT * FROM connections ORDER BY updatedAt DESC')
-  return stmt.all() as MongoDBConnection[]
+  return stmt.all() as DatabaseConnection[]
 }
 
 export const deleteConnection = (id: string) => {

@@ -1,13 +1,17 @@
 // Connection types
-export interface MongoDBConnection {
+export type DatabaseType = 'mongodb' | 'postgresql' | 'mysql' | 'sqlite' | 'redis' | 'mssql' | 'kafka'
+
+export interface DatabaseConnection {
   id: string
   name: string
+  type: DatabaseType
   connectionString: string
   host?: string
   port?: number
   username?: string
   password?: string
   authDatabase?: string
+  database?: string
   ssl?: boolean
   sshTunnel?: SSHTunnelConfig
   createdAt: Date
@@ -16,6 +20,9 @@ export interface MongoDBConnection {
   color?: string
   group?: string
 }
+
+/** @deprecated Use DatabaseConnection instead */
+export type MongoDBConnection = DatabaseConnection
 
 export interface SSHTunnelConfig {
   enabled: boolean

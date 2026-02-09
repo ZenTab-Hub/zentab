@@ -1,20 +1,32 @@
 import { useState, useEffect } from 'react'
-import { ChevronDown, Search } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { ChevronDown, ChevronRight, Search, Database, Table } from 'lucide-react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useConnectionStore } from '@/store/connectionStore'
-import { Button } from '@/components/common/Button'
-import { mongodbService } from '@/services/mongodb.service'
+import { databaseService } from '@/services/database.service'
+import { DatabaseIcon } from '@/components/common/DatabaseIcon'
+
+const PAGE_NAMES: Record<string, string> = {
+  '/': 'Connections',
+  '/query-editor': 'Query Editor',
+  '/data-viewer': 'Data Viewer',
+  '/aggregation': 'Aggregation',
+  '/schema-analyzer': 'Schema',
+  '/import-export': 'Import/Export',
+}
 
 export const Header = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const {
     activeConnectionId,
+    getActiveConnection,
     selectedDatabase,
     selectedCollection,
     setSelectedDatabase,
     setSelectedCollection
   } = useConnectionStore()
 
+  const activeConnection = getActiveConnection()
   const [showDatabaseDropdown, setShowDatabaseDropdown] = useState(false)
   const [showCollectionDropdown, setShowCollectionDropdown] = useState(false)
   const [databases, setDatabases] = useState<any[]>([])
@@ -22,27 +34,19 @@ export const Header = () => {
   const [databaseSearch, setDatabaseSearch] = useState('')
   const [collectionSearch, setCollectionSearch] = useState('')
 
-  // Load databases when connection is active
   useEffect(() => {
-    if (activeConnectionId) {
-      loadDatabases()
-    }
+    if (activeConnectionId) loadDatabases()
   }, [activeConnectionId])
 
-  // Load collections when database is selected
   useEffect(() => {
-    if (activeConnectionId && selectedDatabase) {
-      loadCollections()
-    }
+    if (activeConnectionId && selectedDatabase) loadCollections()
   }, [activeConnectionId, selectedDatabase])
 
   const loadDatabases = async () => {
     if (!activeConnectionId) return
     try {
-      const result: any = await mongodbService.listDatabases(activeConnectionId)
-      if (result.success && result.databases) {
-        setDatabases(result.databases)
-      }
+      const result: any = await databaseService.listDatabases(activeConnectionId)
+      if (result.success && result.databases) setDatabases(result.databases)
     } catch (error) {
       console.error('Failed to load databases:', error)
     }
@@ -51,10 +55,8 @@ export const Header = () => {
   const loadCollections = async () => {
     if (!activeConnectionId || !selectedDatabase) return
     try {
-      const result: any = await mongodbService.listCollections(activeConnectionId, selectedDatabase)
-      if (result.success && result.collections) {
-        setCollections(result.collections)
-      }
+      const result: any = await databaseService.listCollections(activeConnectionId, selectedDatabase)
+      if (result.success && result.collections) setCollections(result.collections)
     } catch (error) {
       console.error('Failed to load collections:', error)
     }
@@ -84,43 +86,53 @@ export const Header = () => {
     return collName.toLowerCase().includes(collectionSearch.toLowerCase())
   })
 
+  const pageName = PAGE_NAMES[location.pathname] || ''
+
   return (
     <>
-      <header className="flex h-16 items-center justify-between border-b bg-card px-6">
-        <div className="flex items-center space-x-4">
-          {/* Database Selector */}
-          <div className="flex items-center space-x-2 relative">
-            <span className="text-sm text-muted-foreground">Database:</span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="min-w-[150px] justify-between"
+      <header className="flex h-9 items-center border-b bg-toolbar px-3 gap-2">
+        {/* Breadcrumb */}
+        <div className="breadcrumb flex-1">
+          {activeConnection && (
+            <>
+              <div className="flex items-center gap-1 breadcrumb-item">
+                <DatabaseIcon type={activeConnection.type || 'mongodb'} className="h-3 w-3" />
+                <span className="text-[11px]">{activeConnection.name}</span>
+              </div>
+              <ChevronRight className="h-3 w-3 breadcrumb-separator" />
+            </>
+          )}
+
+          {/* Database selector */}
+          <div className="relative">
+            <button
               onClick={() => setShowDatabaseDropdown(!showDatabaseDropdown)}
+              className="flex items-center gap-1 breadcrumb-item px-1.5 py-0.5 rounded hover:bg-accent transition-colors"
             >
-              <span>{selectedDatabase || 'Select database'}</span>
-              <ChevronDown className="ml-2 h-4 w-4" />
-            </Button>
+              <Database className="h-3 w-3" />
+              <span className="text-[11px]">{selectedDatabase || 'database'}</span>
+              <ChevronDown className="h-2.5 w-2.5 opacity-50" />
+            </button>
 
             {showDatabaseDropdown && (
-              <div className="absolute top-full left-20 mt-1 w-64 bg-card border rounded-lg shadow-lg z-50 max-h-80 overflow-hidden flex flex-col">
-                <div className="p-2 border-b">
+              <div className="absolute top-full left-0 mt-1 w-56 bg-popover border rounded-md shadow-lg z-50 overflow-hidden">
+                <div className="p-1.5 border-b">
                   <div className="relative">
                     <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                     <input
                       type="text"
-                      placeholder="Search databases..."
+                      placeholder="Filter..."
                       value={databaseSearch}
                       onChange={(e) => setDatabaseSearch(e.target.value)}
-                      className="w-full pl-7 pr-2 py-1 text-xs rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full pl-7 pr-2 py-1 text-[11px] rounded border bg-background focus:outline-none focus:border-primary/50"
                       onClick={(e) => e.stopPropagation()}
+                      autoFocus
                     />
                   </div>
                 </div>
-                <div className="overflow-y-auto max-h-64">
+                <div className="overflow-y-auto max-h-48 p-0.5">
                   {filteredDatabases.length === 0 ? (
-                    <div className="p-3 text-sm text-muted-foreground">
-                      {databases.length === 0 ? 'No databases found' : 'No matching databases'}
-                    </div>
+                    <div className="p-3 text-[11px] text-muted-foreground text-center">No databases</div>
                   ) : (
                     filteredDatabases.map((db) => {
                       const dbName = typeof db === 'string' ? db : db.name
@@ -128,8 +140,8 @@ export const Header = () => {
                         <button
                           key={dbName}
                           onClick={() => handleSelectDatabase(dbName)}
-                          className={`w-full text-left px-4 py-2 hover:bg-muted ${
-                            selectedDatabase === dbName ? 'bg-muted font-medium' : ''
+                          className={`w-full text-left px-2 py-1.5 text-[11px] rounded hover:bg-accent transition-colors ${
+                            selectedDatabase === dbName ? 'bg-primary/10 text-primary font-medium' : ''
                           }`}
                         >
                           {dbName}
@@ -142,69 +154,77 @@ export const Header = () => {
             )}
           </div>
 
-          {/* Collection Selector */}
           {selectedDatabase && (
-            <div className="flex items-center space-x-2 relative">
-              <span className="text-sm text-muted-foreground">Collection:</span>
-              <Button
-                variant="outline"
-                size="sm"
-                className="min-w-[150px] justify-between"
-                onClick={() => setShowCollectionDropdown(!showCollectionDropdown)}
-              >
-                <span>{selectedCollection || 'Select collection'}</span>
-                <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
+            <>
+              <ChevronRight className="h-3 w-3 breadcrumb-separator" />
+              {/* Collection selector */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowCollectionDropdown(!showCollectionDropdown)}
+                  className="flex items-center gap-1 breadcrumb-item px-1.5 py-0.5 rounded hover:bg-accent transition-colors"
+                >
+                  <Table className="h-3 w-3" />
+                  <span className="text-[11px]">{selectedCollection || 'collection'}</span>
+                  <ChevronDown className="h-2.5 w-2.5 opacity-50" />
+                </button>
 
-              {showCollectionDropdown && (
-                <div className="absolute top-full left-24 mt-1 w-64 bg-card border rounded-lg shadow-lg z-50 max-h-80 overflow-hidden flex flex-col">
-                  <div className="p-2 border-b">
-                    <div className="relative">
-                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                      <input
-                        type="text"
-                        placeholder="Search collections..."
-                        value={collectionSearch}
-                        onChange={(e) => setCollectionSearch(e.target.value)}
-                        className="w-full pl-7 pr-2 py-1 text-xs rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                        onClick={(e) => e.stopPropagation()}
-                      />
+                {showCollectionDropdown && (
+                  <div className="absolute top-full left-0 mt-1 w-56 bg-popover border rounded-md shadow-lg z-50 overflow-hidden">
+                    <div className="p-1.5 border-b">
+                      <div className="relative">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                        <input
+                          type="text"
+                          placeholder="Filter..."
+                          value={collectionSearch}
+                          onChange={(e) => setCollectionSearch(e.target.value)}
+                          className="w-full pl-7 pr-2 py-1 text-[11px] rounded border bg-background focus:outline-none focus:border-primary/50"
+                          onClick={(e) => e.stopPropagation()}
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+                    <div className="overflow-y-auto max-h-48 p-0.5">
+                      {filteredCollections.length === 0 ? (
+                        <div className="p-3 text-[11px] text-muted-foreground text-center">No collections</div>
+                      ) : (
+                        filteredCollections.map((coll) => {
+                          const collName = typeof coll === 'string' ? coll : coll.name
+                          return (
+                            <button
+                              key={collName}
+                              onClick={() => handleSelectCollection(collName)}
+                              className={`w-full text-left px-2 py-1.5 text-[11px] rounded hover:bg-accent transition-colors ${
+                                selectedCollection === collName ? 'bg-primary/10 text-primary font-medium' : ''
+                              }`}
+                            >
+                              {collName}
+                            </button>
+                          )
+                        })
+                      )}
                     </div>
                   </div>
-                  <div className="overflow-y-auto max-h-64">
-                    {filteredCollections.length === 0 ? (
-                      <div className="p-3 text-sm text-muted-foreground">
-                        {collections.length === 0 ? 'No collections found' : 'No matching collections'}
-                      </div>
-                    ) : (
-                      filteredCollections.map((coll) => {
-                        const collName = typeof coll === 'string' ? coll : coll.name
-                        return (
-                          <button
-                            key={collName}
-                            onClick={() => handleSelectCollection(collName)}
-                            className={`w-full text-left px-4 py-2 hover:bg-muted ${
-                              selectedCollection === collName ? 'bg-muted font-medium' : ''
-                            }`}
-                          >
-                            {collName}
-                          </button>
-                        )
-                      })
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {pageName && (
+            <>
+              <ChevronRight className="h-3 w-3 breadcrumb-separator" />
+              <span className="text-[11px] text-foreground font-medium">{pageName}</span>
+            </>
           )}
         </div>
 
-        <div className="flex items-center space-x-4">
-          <div className="text-sm text-muted-foreground">
-            <span className="inline-flex h-2 w-2 rounded-full bg-green-500 mr-2"></span>
-            Connected
+        {/* Status */}
+        {activeConnectionId && (
+          <div className="flex items-center gap-1.5">
+            <div className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+            <span className="text-[10px] text-muted-foreground">Connected</span>
           </div>
-        </div>
+        )}
       </header>
 
       {/* Click outside to close dropdowns */}
