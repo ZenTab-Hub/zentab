@@ -1,34 +1,101 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-<defs>
-<linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#0c0f1a"/><stop offset="50%" stop-color="#111832"/><stop offset="100%" stop-color="#0a1628"/></linearGradient>
-<linearGradient id="ac" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00d4ff"/><stop offset="100%" stop-color="#7c5cfc"/></linearGradient>
-<linearGradient id="sp" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ffd700"/><stop offset="100%" stop-color="#ff6b35"/></linearGradient>
-<linearGradient id="db" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#5eead4"/><stop offset="50%" stop-color="#22d3ee"/><stop offset="100%" stop-color="#818cf8"/></linearGradient>
-<filter id="gl"><feGaussianBlur stdDeviation="6" result="b"/><feComposite in="SourceGraphic" in2="b" operator="over"/></filter>
-<filter id="gl2"><feGaussianBlur stdDeviation="10" result="b"/><feComposite in="SourceGraphic" in2="b" operator="over"/></filter>
-</defs>
-<rect x="16" y="16" width="480" height="480" rx="100" fill="url(#bg)"/>
-<rect x="16" y="16" width="480" height="480" rx="100" fill="none" stroke="#fff" stroke-opacity="0.06" stroke-width="1.5"/>
-<g opacity="0.03" stroke="#fff" stroke-width="0.8"><line x1="128" y1="40" x2="128" y2="472"/><line x1="256" y1="40" x2="256" y2="472"/><line x1="384" y1="40" x2="384" y2="472"/><line x1="40" y1="170" x2="472" y2="170"/><line x1="40" y1="280" x2="472" y2="280"/><line x1="40" y1="390" x2="472" y2="390"/></g>
-<g transform="translate(256, 268)">
-<ellipse cx="0" cy="10" rx="110" ry="90" fill="#22d3ee" opacity="0.05" filter="url(#gl2)"/>
-<line x1="-88" y1="-48" x2="-88" y2="62" stroke="url(#ac)" stroke-width="2.8" opacity="0.7"/>
-<line x1="88" y1="-48" x2="88" y2="62" stroke="url(#ac)" stroke-width="2.8" opacity="0.7"/>
-<rect x="-88" y="-48" width="176" height="110" fill="url(#db)" opacity="0.08"/>
-<ellipse cx="0" cy="62" rx="88" ry="26" fill="url(#db)" opacity="0.08" stroke="url(#ac)" stroke-width="2.5" stroke-opacity="0.5"/>
-<ellipse cx="0" cy="7" rx="88" ry="26" fill="none" stroke="url(#ac)" stroke-width="2" stroke-opacity="0.3"/>
-<ellipse cx="0" cy="-48" rx="88" ry="26" fill="url(#db)" opacity="0.18" stroke="url(#ac)" stroke-width="2.8"/>
-<g opacity="0.4">
-<rect x="-58" y="-30" width="38" height="3.5" rx="2" fill="#5eead4"/><rect x="-12" y="-30" width="24" height="3.5" rx="2" fill="#818cf8"/><rect x="20" y="-30" width="34" height="3.5" rx="2" fill="#22d3ee"/>
-<rect x="-58" y="-19" width="28" height="3.5" rx="2" fill="#22d3ee"/><rect x="-22" y="-19" width="42" height="3.5" rx="2" fill="#5eead4"/><rect x="28" y="-19" width="26" height="3.5" rx="2" fill="#818cf8"/>
-<rect x="-58" y="18" width="34" height="3.5" rx="2" fill="#818cf8"/><rect x="-16" y="18" width="26" height="3.5" rx="2" fill="#5eead4"/><rect x="18" y="18" width="38" height="3.5" rx="2" fill="#22d3ee"/>
-<rect x="-58" y="29" width="24" height="3.5" rx="2" fill="#22d3ee"/><rect x="-26" y="29" width="36" height="3.5" rx="2" fill="#818cf8"/><rect x="18" y="29" width="28" height="3.5" rx="2" fill="#5eead4"/>
-</g>
-</g>
-<g fill="url(#ac)" opacity="0.45" font-family="monospace" font-weight="700" font-size="58"><text x="98" y="308">{</text><text x="372" y="308">}</text></g>
-<g transform="translate(372, 138)" filter="url(#gl)"><path d="M0,-30 C2.5,-9 9,-2.5 30,0 C9,2.5 2.5,9 0,30 C-2.5,9 -9,2.5 -30,0 C-9,-2.5 -2.5,-9 0,-30Z" fill="url(#sp)" opacity="0.95"/><circle cx="0" cy="0" r="5" fill="#fff" opacity="0.9"/></g>
-<g transform="translate(122, 165)" filter="url(#gl)"><path d="M0,-15 C1.5,-4.5 4.5,-1.5 15,0 C4.5,1.5 1.5,4.5 0,15 C-1.5,4.5 -4.5,1.5 -15,0 C-4.5,-1.5 -1.5,-4.5 0,-15Z" fill="#5eead4" opacity="0.65"/><circle cx="0" cy="0" r="2.5" fill="#fff" opacity="0.8"/></g>
-<g transform="translate(355, 392)" filter="url(#gl)"><path d="M0,-12 C1.2,-3.6 3.6,-1.2 12,0 C3.6,1.2 1.2,3.6 0,12 C-1.2,3.6 -3.6,1.2 -12,0 C-3.6,-1.2 -1.2,-3.6 0,-12Z" fill="#818cf8" opacity="0.55"/><circle cx="0" cy="0" r="2" fill="#fff" opacity="0.7"/></g>
-<ellipse cx="256" cy="268" rx="138" ry="42" fill="none" stroke="url(#ac)" stroke-width="1.2" opacity="0.12" stroke-dasharray="7,5" transform="rotate(-12, 256, 268)"/>
-<circle cx="140" cy="248" r="2.5" fill="#22d3ee" opacity="0.4"/><circle cx="380" cy="285" r="2" fill="#818cf8" opacity="0.35"/>
+  <defs>
+    <!-- Background gradient: bright blue to violet -->
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="50%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#a78bfa"/>
+    </linearGradient>
+    <!-- Database body gradient -->
+    <linearGradient id="dbBody" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#e0e7ff" stop-opacity="0.9"/>
+    </linearGradient>
+    <!-- Glow effect -->
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softShadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#4338ca" flood-opacity="0.3"/>
+    </filter>
+    <!-- Sparkle gradient -->
+    <linearGradient id="sparkle" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded square -->
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="url(#bg)"/>
+
+  <!-- Subtle pattern dots -->
+  <g opacity="0.08" fill="#ffffff">
+    <circle cx="80" cy="80" r="2"/><circle cx="120" cy="80" r="2"/><circle cx="160" cy="80" r="2"/>
+    <circle cx="200" cy="80" r="2"/><circle cx="240" cy="80" r="2"/><circle cx="280" cy="80" r="2"/>
+    <circle cx="320" cy="80" r="2"/><circle cx="360" cy="80" r="2"/><circle cx="400" cy="80" r="2"/>
+    <circle cx="80" cy="120" r="2"/><circle cx="120" cy="120" r="2"/><circle cx="160" cy="120" r="2"/>
+    <circle cx="200" cy="120" r="2"/><circle cx="240" cy="120" r="2"/><circle cx="280" cy="120" r="2"/>
+    <circle cx="320" cy="120" r="2"/><circle cx="360" cy="120" r="2"/><circle cx="400" cy="120" r="2"/>
+    <circle cx="80" cy="400" r="2"/><circle cx="120" cy="400" r="2"/><circle cx="160" cy="400" r="2"/>
+    <circle cx="200" cy="400" r="2"/><circle cx="240" cy="400" r="2"/><circle cx="280" cy="400" r="2"/>
+    <circle cx="320" cy="400" r="2"/><circle cx="360" cy="400" r="2"/><circle cx="400" cy="400" r="2"/>
+    <circle cx="80" cy="440" r="2"/><circle cx="120" cy="440" r="2"/><circle cx="160" cy="440" r="2"/>
+    <circle cx="200" cy="440" r="2"/><circle cx="240" cy="440" r="2"/><circle cx="280" cy="440" r="2"/>
+    <circle cx="320" cy="440" r="2"/><circle cx="360" cy="440" r="2"/><circle cx="400" cy="440" r="2"/>
+  </g>
+
+  <!-- Outer glow ring -->
+  <ellipse cx="256" cy="260" rx="140" ry="140" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.15" stroke-dasharray="8 6"/>
+
+  <!-- Database cylinder - white/bright -->
+  <g filter="url(#softShadow)">
+    <!-- Cylinder body -->
+    <path d="M156,200 L156,330 Q156,370 256,370 Q356,370 356,330 L356,200" fill="url(#dbBody)" stroke="#c7d2fe" stroke-width="2"/>
+    <!-- Cylinder top ellipse -->
+    <ellipse cx="256" cy="200" rx="100" ry="35" fill="#ffffff" stroke="#c7d2fe" stroke-width="2"/>
+    <!-- Middle ellipse line -->
+    <ellipse cx="256" cy="265" rx="100" ry="30" fill="none" stroke="#c7d2fe" stroke-width="1.5" opacity="0.5"/>
+
+    <!-- Data rows inside cylinder -->
+    <g opacity="0.7">
+      <rect x="190" y="220" width="60" height="6" rx="3" fill="#6366f1"/>
+      <rect x="260" y="220" width="40" height="6" rx="3" fill="#8b5cf6"/>
+      <rect x="310" y="220" width="25" height="6" rx="3" fill="#a78bfa"/>
+
+      <rect x="190" y="238" width="45" height="6" rx="3" fill="#06b6d4"/>
+      <rect x="245" y="238" width="55" height="6" rx="3" fill="#6366f1"/>
+      <rect x="310" y="238" width="20" height="6" rx="3" fill="#8b5cf6"/>
+
+      <rect x="190" y="290" width="50" height="6" rx="3" fill="#8b5cf6"/>
+      <rect x="250" y="290" width="35" height="6" rx="3" fill="#06b6d4"/>
+      <rect x="295" y="290" width="30" height="6" rx="3" fill="#6366f1"/>
+
+      <rect x="190" y="308" width="40" height="6" rx="3" fill="#a78bfa"/>
+      <rect x="240" y="308" width="50" height="6" rx="3" fill="#6366f1"/>
+      <rect x="300" y="308" width="25" height="6" rx="3" fill="#06b6d4"/>
+    </g>
+  </g>
+
+  <!-- Query brackets { } -->
+  <text x="100" y="290" font-family="monospace" font-size="72" font-weight="bold" fill="#ffffff" opacity="0.85" filter="url(#glow)">{</text>
+  <text x="370" y="290" font-family="monospace" font-size="72" font-weight="bold" fill="#ffffff" opacity="0.85" filter="url(#glow)">}</text>
+
+  <!-- AI Sparkles - bright gold -->
+  <g filter="url(#glow)">
+    <!-- Main sparkle top-right -->
+    <path d="M370,120 L376,140 L396,146 L376,152 L370,172 L364,152 L344,146 L364,140 Z" fill="url(#sparkle)"/>
+    <!-- Small sparkle top-left -->
+    <path d="M145,135 L148,145 L158,148 L148,151 L145,161 L142,151 L132,148 L142,145 Z" fill="#fbbf24" opacity="0.8"/>
+    <!-- Tiny sparkle -->
+    <path d="M390,185 L392,191 L398,193 L392,195 L390,201 L388,195 L382,193 L388,191 Z" fill="#ffffff" opacity="0.7"/>
+    <!-- Bottom sparkle -->
+    <path d="M130,370 L133,380 L143,383 L133,386 L130,396 L127,386 L117,383 L127,380 Z" fill="#fbbf24" opacity="0.6"/>
+  </g>
+
+  <!-- "AI" text badge -->
+  <g>
+    <rect x="310" y="380" width="60" height="28" rx="14" fill="#ffffff" opacity="0.9"/>
+    <text x="340" y="400" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="700" fill="#6366f1" text-anchor="middle">AI</text>
+  </g>
 </svg>

@@ -62,7 +62,7 @@ export function LockScreen() {
             <Lock className="h-8 w-8 text-primary" />
           </div>
           <div className="text-center">
-            <h1 className="text-lg font-bold text-foreground">QueryAI Locked</h1>
+            <h1 className="text-lg font-bold text-foreground">Zentab Locked</h1>
             <p className="text-xs text-muted-foreground mt-1">
               Enter your 2FA code to unlock
             </p>

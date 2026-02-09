@@ -91,7 +91,7 @@ export const useQueryTabStore = create<QueryTabState>()(
       },
     }),
     {
-      name: 'queryai-query-tabs',
+      name: 'zentab-query-tabs',
       // Only persist the serialisable subset — strip results/loading/error
       partialize: (state) => ({
         tabs: state.tabs.map(

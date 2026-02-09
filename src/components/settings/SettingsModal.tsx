@@ -499,7 +499,7 @@ function UpdateTab() {
         <h3 className={SECTION_TITLE_CLS}>Current Version</h3>
         <div className={ROW_CLS}>
           <div>
-            <p className={LABEL_CLS}>QueryAI</p>
+            <p className={LABEL_CLS}>Zentab</p>
             <p className={DESC_CLS}>Currently installed version</p>
           </div>
           <span className="text-xs font-mono bg-muted px-2 py-1 rounded">v{appVersion}</span>
@@ -612,7 +612,7 @@ function AboutTab() {
       <div className={SECTION_CLS}>
         <h3 className={SECTION_TITLE_CLS}>Application</h3>
         <div className="space-y-2">
-          <div className={ROW_CLS}><p className={LABEL_CLS}>App Name</p><p className="text-xs text-muted-foreground">QueryAI</p></div>
+          <div className={ROW_CLS}><p className={LABEL_CLS}>App Name</p><p className="text-xs text-muted-foreground">Zentab</p></div>
           <div className={ROW_CLS}><p className={LABEL_CLS}>Version</p><p className="text-xs text-muted-foreground">1.0.0</p></div>
           <div className={ROW_CLS}><p className={LABEL_CLS}>Framework</p><p className="text-xs text-muted-foreground">Electron + React + TypeScript</p></div>
         </div>

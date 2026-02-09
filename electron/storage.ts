@@ -7,7 +7,7 @@ let db: Database.Database | null = null
 
 export const initStorage = () => {
   const userDataPath = app.getPath('userData')
-  const dbPath = path.join(userDataPath, 'queryai.db')
+  const dbPath = path.join(userDataPath, 'zentab.db')
 
   console.log('Initializing storage at:', dbPath)
 

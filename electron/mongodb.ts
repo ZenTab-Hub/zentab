@@ -357,8 +357,8 @@ export const mongoCreateDatabase = async (connectionId: string, database: string
     // MongoDB creates databases implicitly when you write to them
     // Create a temp collection then drop it to register the database
     const db = connection.client.db(database)
-    await db.createCollection('__queryai_init__')
-    await db.dropCollection('__queryai_init__')
+    await db.createCollection('__zentab_init__')
+    await db.dropCollection('__zentab_init__')
 
     return { success: true }
   } catch (error: any) {

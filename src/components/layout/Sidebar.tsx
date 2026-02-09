@@ -243,7 +243,7 @@ export const Sidebar = () => {
       <div className="flex h-10 items-center justify-between px-3 border-b border-border/50">
         <div className="flex items-center gap-2">
           <img src="/logo.png" alt="Logo" className="h-5 w-5 object-contain rounded border border-border/50" />
-          <span className="text-xs font-semibold text-sidebar-foreground uppercase tracking-wider">QueryAI</span>
+          <span className="text-xs font-semibold text-sidebar-foreground uppercase tracking-wider">Zentab</span>
         </div>
         <button
           onClick={() => setCollapsed(true)}

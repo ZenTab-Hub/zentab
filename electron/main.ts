@@ -37,7 +37,7 @@ const createWindow = () => {
     height: 900,
     minWidth: 1024,
     minHeight: 768,
-    title: 'QueryAI',
+    title: 'Zentab',
     icon: path.join(__dirname, '../build/icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -79,7 +79,7 @@ app.on('will-finish-launching', () => {
 // App lifecycle
 app.whenReady().then(() => {
   // Set app name for macOS menu bar & dock
-  app.setName('QueryAI')
+  app.setName('Zentab')
 
   // Set dock icon on macOS (needed for dev mode)
   if (process.platform === 'darwin' && app.dock) {
@@ -608,8 +608,8 @@ ipcMain.handle('security:setup2FA', async () => {
   try {
     const secret = new OTPAuth.Secret({ size: 20 })
     const totp = new OTPAuth.TOTP({
-      issuer: 'QueryAI',
-      label: 'QueryAI App',
+      issuer: 'Zentab',
+      label: 'Zentab App',
       algorithm: 'SHA1',
       digits: 6,
       period: 30,
@@ -633,8 +633,8 @@ ipcMain.handle('security:verify2FA', async (_event, secret: string, token: strin
       actualSecret = stored
     }
     const totp = new OTPAuth.TOTP({
-      issuer: 'QueryAI',
-      label: 'QueryAI App',
+      issuer: 'Zentab',
+      label: 'Zentab App',
       algorithm: 'SHA1',
       digits: 6,
       period: 30,

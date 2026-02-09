@@ -211,7 +211,7 @@ export const ConnectionsPage = () => {
       if (connections.length === 0) { t.warning('No connections to export'); return }
       const result = await window.electronAPI.dialog.showSaveDialog({
         title: 'Export Connections',
-        defaultPath: `queryai-connections-${new Date().toISOString().slice(0, 10)}.json`,
+        defaultPath: `zentab-connections-${new Date().toISOString().slice(0, 10)}.json`,
         filters: [{ name: 'JSON', extensions: ['json'] }],
       })
       if (result.canceled || !result.filePath) return

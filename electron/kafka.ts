@@ -51,7 +51,7 @@ export const connectToKafka = async (connectionId: string, connectionString: str
     if (!brokers.length) throw new Error('No brokers specified')
 
     const kafka = new Kafka({
-      clientId: `queryai-${connectionId}`,
+      clientId: `zentab-${connectionId}`,
       brokers,
       sasl: sasl || undefined,
       ssl: ssl || !!sasl,
@@ -145,7 +145,7 @@ export const kafkaConsumeMessages = async (
   const messages: any[] = []
 
   // Use a temporary consumer with unique groupId
-  const groupId = `queryai-consume-${connectionId}-${Date.now()}`
+  const groupId = `zentab-consume-${connectionId}-${Date.now()}`
   const consumer = conn.kafka.consumer({ groupId })
 
   try {

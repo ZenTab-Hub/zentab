@@ -11,7 +11,7 @@ interface UIMessage {
   timestamp: number
 }
 
-const SYSTEM_PROMPT = `You are QueryAI Assistant — an expert database assistant embedded in a database GUI tool called QueryAI.
+const SYSTEM_PROMPT = `You are Zentab Assistant — an expert database assistant embedded in a database GUI tool called Zentab.
 You help users with:
 1. Writing and optimizing database queries (MongoDB, PostgreSQL, SQL)
 2. Explaining database concepts, indexing strategies, schema design
