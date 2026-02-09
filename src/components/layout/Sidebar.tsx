@@ -204,7 +204,7 @@ export const Sidebar = () => {
           className="p-1.5 rounded hover:bg-sidebar-accent transition-colors mb-1"
           title="Expand sidebar"
         >
-          <img src="/logo.png" alt="Logo" className="h-5 w-5 object-contain" />
+          <img src="/logo.png" alt="Logo" className="h-5 w-5 object-contain rounded border border-border/50" />
         </button>
         {navigation.filter(item => !(item as any).dbType || (item as any).dbType === activeConnection?.type).map((item) => {
           const isActive = location.pathname === item.href
@@ -242,7 +242,7 @@ export const Sidebar = () => {
       {/* Header */}
       <div className="flex h-10 items-center justify-between px-3 border-b border-border/50">
         <div className="flex items-center gap-2">
-          <img src="/logo.png" alt="Logo" className="h-5 w-5 object-contain" />
+          <img src="/logo.png" alt="Logo" className="h-5 w-5 object-contain rounded border border-border/50" />
           <span className="text-xs font-semibold text-sidebar-foreground uppercase tracking-wider">QueryAI</span>
         </div>
         <button

@@ -27,10 +27,10 @@ const DB_CONFIGS = {
 } as const
 
 /* ── Grouped DB types ──────────────────────────────────────────── */
-const DB_GROUPS: { label: string; types: DatabaseType[] }[] = [
-  { label: 'NoSQL',              types: ['mongodb'] },
-  { label: 'SQL',                types: ['postgresql', 'mysql', 'sqlite', 'mssql'] },
-  { label: 'Stream & Cache',     types: ['redis', 'kafka'] },
+const DB_GROUPS: { label: string; types: DatabaseType[]; color: string; bg: string; border: string }[] = [
+  { label: 'NoSQL',          types: ['mongodb'],                                  color: 'text-emerald-400', bg: 'bg-emerald-500/[0.04]', border: 'border-emerald-500/15' },
+  { label: 'SQL',            types: ['postgresql', 'mysql', 'sqlite', 'mssql'],   color: 'text-blue-400',    bg: 'bg-blue-500/[0.04]',    border: 'border-blue-500/15' },
+  { label: 'Stream & Cache', types: ['redis', 'kafka'],                           color: 'text-amber-400',   bg: 'bg-amber-500/[0.04]',   border: 'border-amber-500/15' },
 ]
 
 /* ── Supported DB types ──────────────────────────────────────── */
@@ -158,10 +158,10 @@ export const ConnectionForm = ({ onSubmit, onCancel, initialData }: ConnectionFo
 
         <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
           {/* DB Type Selector — Grouped */}
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {DB_GROUPS.map(group => (
-              <div key={group.label}>
-                <span className="block text-[10px] font-semibold text-muted-foreground mb-1.5 uppercase tracking-widest">{group.label}</span>
+              <div key={group.label} className={`rounded-lg border ${group.border} ${group.bg} p-2.5`}>
+                <span className={`inline-block text-[10px] font-bold uppercase tracking-widest mb-2 ${group.color}`}>{group.label}</span>
                 <div className="flex flex-wrap gap-1.5">
                   {group.types.map(t => <DbTypeButton key={t} type={t} selected={dbType === t} onSelect={handleDbTypeChange} />)}
                 </div>

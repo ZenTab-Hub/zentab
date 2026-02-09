@@ -4,10 +4,10 @@ import { DatabaseIcon, getDatabaseTypeName, getDatabaseTypeColor } from '@/compo
 import type { DatabaseConnection, DatabaseType } from '@/types'
 
 /* ── Connection groups ─────────────────────────────────────────── */
-const CONNECTION_GROUPS: { label: string; icon: typeof Database; types: Set<DatabaseType> }[] = [
-  { label: 'NoSQL',          icon: Database, types: new Set(['mongodb']) },
-  { label: 'SQL',            icon: Server,   types: new Set(['postgresql', 'mysql', 'sqlite', 'mssql']) },
-  { label: 'Stream & Cache', icon: Layers,   types: new Set(['redis', 'kafka']) },
+const CONNECTION_GROUPS: { label: string; icon: typeof Database; types: Set<DatabaseType>; color: string; bg: string; border: string }[] = [
+  { label: 'NoSQL',          icon: Database, types: new Set(['mongodb']),                                  color: 'text-emerald-400', bg: 'bg-emerald-500/[0.04]', border: 'border-emerald-500/15' },
+  { label: 'SQL',            icon: Server,   types: new Set(['postgresql', 'mysql', 'sqlite', 'mssql']),   color: 'text-blue-400',    bg: 'bg-blue-500/[0.04]',    border: 'border-blue-500/15' },
+  { label: 'Stream & Cache', icon: Layers,   types: new Set(['redis', 'kafka']),                           color: 'text-amber-400',   bg: 'bg-amber-500/[0.04]',   border: 'border-amber-500/15' },
 ]
 
 interface ConnectionListProps {
@@ -126,16 +126,18 @@ export const ConnectionList = ({
   if (connections.length === 0) return null
 
   return (
-    <div className="space-y-5 overflow-y-auto">
+    <div className="space-y-4 overflow-y-auto">
       {grouped.map(group => {
         const GroupIcon = group.icon
         return (
-          <div key={group.label}>
-            <div className="flex items-center gap-2 mb-2.5">
-              <GroupIcon className="h-3.5 w-3.5 text-muted-foreground" />
-              <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{group.label}</h3>
-              <span className="text-[10px] text-muted-foreground/60 font-medium">{group.items.length}</span>
-              <div className="flex-1 border-t border-border/30" />
+          <div key={group.label} className={`rounded-xl border ${group.border} ${group.bg} p-4`}>
+            <div className="flex items-center gap-2.5 mb-3">
+              <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider ${group.color}`}>
+                <GroupIcon className="h-3.5 w-3.5" />
+                {group.label}
+              </span>
+              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md border ${group.border} ${group.color}`}>{group.items.length}</span>
+              <div className="flex-1 h-px bg-border/30" />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
               {group.items.map(connection => (
