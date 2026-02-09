@@ -76,6 +76,34 @@ class MongoDBService {
     return this.callElectronAPI('deleteDocument', connectionId, dbName, collectionName, filter)
   }
 
+  async updateMany(
+    connectionId: string,
+    dbName: string,
+    collectionName: string,
+    filter: any,
+    update: any
+  ): Promise<any> {
+    return this.callElectronAPI('updateMany', connectionId, dbName, collectionName, filter, update)
+  }
+
+  async deleteMany(
+    connectionId: string,
+    dbName: string,
+    collectionName: string,
+    filter: any
+  ): Promise<any> {
+    return this.callElectronAPI('deleteMany', connectionId, dbName, collectionName, filter)
+  }
+
+  async countDocuments(
+    connectionId: string,
+    dbName: string,
+    collectionName: string,
+    filter: any
+  ): Promise<any> {
+    return this.callElectronAPI('countDocuments', connectionId, dbName, collectionName, filter)
+  }
+
   async aggregate(
     connectionId: string,
     dbName: string,

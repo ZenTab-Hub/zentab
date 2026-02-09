@@ -138,7 +138,7 @@ export const QueryTemplates = ({ onSelectTemplate, dbType, currentQuery }: Query
               <div className="flex items-center gap-1.5 min-w-0">
                 <FileCode2 className="h-3 w-3 text-primary shrink-0" />
                 <span className="text-[11px] font-medium truncate">{t.name}</span>
-                {t.isBuiltIn === 1 && <Lock className="h-2.5 w-2.5 text-muted-foreground shrink-0" title="Built-in" />}
+                {t.isBuiltIn === 1 && <Lock className="h-2.5 w-2.5 text-muted-foreground shrink-0" />}
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{CATEGORY_LABELS[t.category] || t.category}</span>

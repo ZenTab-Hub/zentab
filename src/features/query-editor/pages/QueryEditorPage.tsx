@@ -179,7 +179,7 @@ export const QueryEditorPage = () => {
     if (!activeTab || !templateVarDialog) return
     let q = templateVarDialog.query
     for (const [key, val] of Object.entries(templateVarValues)) {
-      q = q.replaceAll(`{{${key}}}`, val || `{{${key}}}`)
+      q = q.split(`{{${key}}}`).join(val || `{{${key}}}`)
     }
     updateTab(activeTab.id, { query: q })
     setTemplateVarDialog(null)

@@ -250,6 +250,76 @@ export const pgDeleteDocument = async (
   }
 }
 
+export const pgUpdateMany = async (
+  connectionId: string,
+  _database: string,
+  table: string,
+  filter: any,
+  update: any
+) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const { whereClause, values: whereValues } = buildWhereClause(filter)
+    const updateKeys = Object.keys(update).filter(k => !(k in filter))
+    const updateValues = updateKeys.map(k => update[k])
+    const setParts = updateKeys.map((k, i) => `"${k}" = $${whereValues.length + i + 1}`)
+
+    if (setParts.length === 0) return { success: true, matchedCount: 0, modifiedCount: 0 }
+
+    const query = `UPDATE "${table}" SET ${setParts.join(', ')} ${whereClause}`
+    const result = await connection.pool.query(query, [...whereValues, ...updateValues])
+
+    return { success: true, matchedCount: result.rowCount, modifiedCount: result.rowCount }
+  } catch (error: any) {
+    console.error('PG update many error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export const pgDeleteMany = async (
+  connectionId: string,
+  _database: string,
+  table: string,
+  filter: any
+) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const { whereClause, values } = buildWhereClause(filter)
+    const query = `DELETE FROM "${table}" ${whereClause}`
+    const result = await connection.pool.query(query, values)
+
+    return { success: true, deletedCount: result.rowCount }
+  } catch (error: any) {
+    console.error('PG delete many error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export const pgCountRows = async (
+  connectionId: string,
+  _database: string,
+  table: string,
+  filter: any
+) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const { whereClause, values } = buildWhereClause(filter)
+    const query = `SELECT COUNT(*) as count FROM "${table}" ${whereClause}`
+    const result = await connection.pool.query(query, values)
+
+    return { success: true, count: parseInt(result.rows[0]?.count || '0', 10) }
+  } catch (error: any) {
+    console.error('PG count rows error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
 export const pgGetTableSchema = async (
   connectionId: string,
   _database: string,

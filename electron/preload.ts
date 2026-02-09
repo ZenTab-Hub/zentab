@@ -52,6 +52,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       filter: any
     ) =>
       ipcRenderer.invoke('mongodb:deleteDocument', connectionId, dbName, collectionName, filter),
+    updateMany: (connectionId: string, dbName: string, collectionName: string, filter: any, update: any) =>
+      ipcRenderer.invoke('mongodb:updateMany', connectionId, dbName, collectionName, filter, update),
+    deleteMany: (connectionId: string, dbName: string, collectionName: string, filter: any) =>
+      ipcRenderer.invoke('mongodb:deleteMany', connectionId, dbName, collectionName, filter),
+    countDocuments: (connectionId: string, dbName: string, collectionName: string, filter: any) =>
+      ipcRenderer.invoke('mongodb:countDocuments', connectionId, dbName, collectionName, filter),
     // Database management
     createDatabase: (connectionId: string, database: string) =>
       ipcRenderer.invoke('mongodb:createDatabase', connectionId, database),
@@ -96,6 +102,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('postgresql:updateDocument', connectionId, database, table, filter, update),
     deleteDocument: (connectionId: string, database: string, table: string, filter: any) =>
       ipcRenderer.invoke('postgresql:deleteDocument', connectionId, database, table, filter),
+    updateMany: (connectionId: string, database: string, table: string, filter: any, update: any) =>
+      ipcRenderer.invoke('postgresql:updateMany', connectionId, database, table, filter, update),
+    deleteMany: (connectionId: string, database: string, table: string, filter: any) =>
+      ipcRenderer.invoke('postgresql:deleteMany', connectionId, database, table, filter),
+    countRows: (connectionId: string, database: string, table: string, filter: any) =>
+      ipcRenderer.invoke('postgresql:countRows', connectionId, database, table, filter),
     aggregate: (connectionId: string, database: string, table: string, query: string) =>
       ipcRenderer.invoke('postgresql:aggregate', connectionId, database, table, query),
     getTableSchema: (connectionId: string, database: string, table: string) =>
@@ -258,6 +270,9 @@ export interface ElectronAPI {
     insertDocument: (connectionId: string, dbName: string, collectionName: string, document: any) => Promise<any>
     updateDocument: (connectionId: string, dbName: string, collectionName: string, filter: any, update: any) => Promise<any>
     deleteDocument: (connectionId: string, dbName: string, collectionName: string, filter: any) => Promise<any>
+    updateMany: (connectionId: string, dbName: string, collectionName: string, filter: any, update: any) => Promise<any>
+    deleteMany: (connectionId: string, dbName: string, collectionName: string, filter: any) => Promise<any>
+    countDocuments: (connectionId: string, dbName: string, collectionName: string, filter: any) => Promise<any>
   }
   postgresql: {
     connect: (connectionId: string, connectionString: string, sshTunnel?: any) => Promise<any>
@@ -269,6 +284,9 @@ export interface ElectronAPI {
     insertDocument: (connectionId: string, database: string, table: string, document: any) => Promise<any>
     updateDocument: (connectionId: string, database: string, table: string, filter: any, update: any) => Promise<any>
     deleteDocument: (connectionId: string, database: string, table: string, filter: any) => Promise<any>
+    updateMany: (connectionId: string, database: string, table: string, filter: any, update: any) => Promise<any>
+    deleteMany: (connectionId: string, database: string, table: string, filter: any) => Promise<any>
+    countRows: (connectionId: string, database: string, table: string, filter: any) => Promise<any>
     aggregate: (connectionId: string, database: string, table: string, query: string) => Promise<any>
     getTableSchema: (connectionId: string, database: string, table: string) => Promise<any>
   }

@@ -75,6 +75,34 @@ class PostgreSQLService {
     return this.callElectronAPI('deleteDocument', connectionId, database, table, filter)
   }
 
+  async updateMany(
+    connectionId: string,
+    database: string,
+    table: string,
+    filter: any,
+    update: any
+  ): Promise<any> {
+    return this.callElectronAPI('updateMany', connectionId, database, table, filter, update)
+  }
+
+  async deleteMany(
+    connectionId: string,
+    database: string,
+    table: string,
+    filter: any
+  ): Promise<any> {
+    return this.callElectronAPI('deleteMany', connectionId, database, table, filter)
+  }
+
+  async countRows(
+    connectionId: string,
+    database: string,
+    table: string,
+    filter: any
+  ): Promise<any> {
+    return this.callElectronAPI('countRows', connectionId, database, table, filter)
+  }
+
   async aggregate(
     connectionId: string,
     database: string,

@@ -133,6 +133,43 @@ class DatabaseService {
     return mongodbService.deleteDocument(connectionId, database, collection, filter)
   }
 
+  async updateMany(
+    connectionId: string,
+    database: string,
+    collection: string,
+    filter: any,
+    update: any,
+    type?: DatabaseType
+  ): Promise<any> {
+    const dbType = type || this.getActiveType()
+    if (dbType === 'postgresql') return postgresqlService.updateMany(connectionId, database, collection, filter, update)
+    return mongodbService.updateMany(connectionId, database, collection, filter, update)
+  }
+
+  async deleteMany(
+    connectionId: string,
+    database: string,
+    collection: string,
+    filter: any,
+    type?: DatabaseType
+  ): Promise<any> {
+    const dbType = type || this.getActiveType()
+    if (dbType === 'postgresql') return postgresqlService.deleteMany(connectionId, database, collection, filter)
+    return mongodbService.deleteMany(connectionId, database, collection, filter)
+  }
+
+  async countDocuments(
+    connectionId: string,
+    database: string,
+    collection: string,
+    filter: any,
+    type?: DatabaseType
+  ): Promise<any> {
+    const dbType = type || this.getActiveType()
+    if (dbType === 'postgresql') return postgresqlService.countRows(connectionId, database, collection, filter)
+    return mongodbService.countDocuments(connectionId, database, collection, filter)
+  }
+
   async aggregate(
     connectionId: string,
     database: string,

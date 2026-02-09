@@ -227,6 +227,70 @@ export const deleteDocument = async (
   }
 }
 
+export const updateMany = async (
+  connectionId: string,
+  database: string,
+  collection: string,
+  filter: any,
+  update: any
+) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const db = connection.client.db(database)
+    const coll = db.collection(collection)
+    const result = await coll.updateMany(filter, { $set: update })
+
+    return { success: true, matchedCount: result.matchedCount, modifiedCount: result.modifiedCount }
+  } catch (error: any) {
+    console.error('Update many error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export const deleteMany = async (
+  connectionId: string,
+  database: string,
+  collection: string,
+  filter: any
+) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const db = connection.client.db(database)
+    const coll = db.collection(collection)
+    const result = await coll.deleteMany(filter)
+
+    return { success: true, deletedCount: result.deletedCount }
+  } catch (error: any) {
+    console.error('Delete many error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export const countDocuments = async (
+  connectionId: string,
+  database: string,
+  collection: string,
+  filter: any
+) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const db = connection.client.db(database)
+    const coll = db.collection(collection)
+    const count = await coll.countDocuments(filter)
+
+    return { success: true, count }
+  } catch (error: any) {
+    console.error('Count documents error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
 export const aggregate = async (
   connectionId: string,
   database: string,

@@ -4,8 +4,8 @@ import path from 'path'
 import { initStorage, migratePasswords, saveConnection, getConnections, deleteConnection, saveQuery, getSavedQueries, deleteSavedQuery, addQueryHistory, getQueryHistory, getAppSetting, setAppSetting, deleteAppSetting, getQueryTemplates, saveQueryTemplate, deleteQueryTemplate, seedBuiltInTemplates } from './storage'
 import * as OTPAuth from 'otpauth'
 import QRCode from 'qrcode'
-import { connectToMongoDB, disconnectFromMongoDB, pingMongoDB, listDatabases, listCollections, executeQuery, insertDocument, updateDocument, deleteDocument, aggregate, getCollectionStats, mongoCreateDatabase, mongoDropDatabase, mongoCreateCollection, mongoDropCollection, mongoRenameCollection, mongoListIndexes, mongoCreateIndex, mongoDropIndex, explainQuery, getServerStatus, disconnectAll as disconnectAllMongo } from './mongodb'
-import { connectToPostgreSQL, disconnectFromPostgreSQL, pingPostgreSQL, pgListDatabases, pgListTables, pgExecuteQuery, pgFindQuery, pgInsertDocument, pgUpdateDocument, pgDeleteDocument, pgAggregate, pgGetTableSchema, pgCreateDatabase, pgDropDatabase, pgCreateTable, pgDropTable, pgRenameTable, pgListIndexes, pgCreateIndex, pgDropIndex, pgExplainQuery, pgGetServerStats, disconnectAll as disconnectAllPg } from './postgresql'
+import { connectToMongoDB, disconnectFromMongoDB, pingMongoDB, listDatabases, listCollections, executeQuery, insertDocument, updateDocument, deleteDocument, updateMany, deleteMany, countDocuments, aggregate, getCollectionStats, mongoCreateDatabase, mongoDropDatabase, mongoCreateCollection, mongoDropCollection, mongoRenameCollection, mongoListIndexes, mongoCreateIndex, mongoDropIndex, explainQuery, getServerStatus, disconnectAll as disconnectAllMongo } from './mongodb'
+import { connectToPostgreSQL, disconnectFromPostgreSQL, pingPostgreSQL, pgListDatabases, pgListTables, pgExecuteQuery, pgFindQuery, pgInsertDocument, pgUpdateDocument, pgDeleteDocument, pgUpdateMany, pgDeleteMany, pgCountRows, pgAggregate, pgGetTableSchema, pgCreateDatabase, pgDropDatabase, pgCreateTable, pgDropTable, pgRenameTable, pgListIndexes, pgCreateIndex, pgDropIndex, pgExplainQuery, pgGetServerStats, disconnectAll as disconnectAllPg } from './postgresql'
 import { connectToRedis, disconnectFromRedis, pingRedis, redisListDatabases, redisListKeys, redisGetKeyValue, redisSetKey, redisDeleteKey, redisExecuteCommand, redisGetInfo, redisFlushDatabase, redisRenameKey, redisGetServerStats, redisGetSlowLog, redisGetClients, redisMemoryUsage, redisBulkDelete, redisBulkTTL, redisAddItem, redisRemoveItem, redisSubscribe, redisUnsubscribe, redisUnsubscribeAll, redisPublish, redisGetPubSubChannels, setPubSubMessageCallback, disconnectAll as disconnectAllRedis } from './redis'
 import { connectToKafka, disconnectFromKafka, pingKafka, kafkaListTopics, kafkaGetTopicMetadata, kafkaConsumeMessages, kafkaProduceMessage, kafkaCreateTopic, kafkaDeleteTopic, kafkaGetClusterInfo, disconnectAll as disconnectAllKafka } from './kafka'
 import { createSSHTunnel, closeSSHTunnel, closeAllSSHTunnels, type SSHTunnelConfig } from './ssh-tunnel'
@@ -257,6 +257,18 @@ ipcMain.handle('mongodb:deleteDocument', async (_event, connectionId, database, 
   return await deleteDocument(connectionId, database, collection, filter)
 })
 
+ipcMain.handle('mongodb:updateMany', async (_event, connectionId, database, collection, filter, update) => {
+  return await updateMany(connectionId, database, collection, filter, update)
+})
+
+ipcMain.handle('mongodb:deleteMany', async (_event, connectionId, database, collection, filter) => {
+  return await deleteMany(connectionId, database, collection, filter)
+})
+
+ipcMain.handle('mongodb:countDocuments', async (_event, connectionId, database, collection, filter) => {
+  return await countDocuments(connectionId, database, collection, filter)
+})
+
 ipcMain.handle('mongodb:aggregate', async (_event, connectionId, database, collection, pipeline) => {
   return await aggregate(connectionId, database, collection, pipeline)
 })
@@ -341,6 +353,18 @@ ipcMain.handle('postgresql:updateDocument', async (_event, connectionId, databas
 
 ipcMain.handle('postgresql:deleteDocument', async (_event, connectionId, database, table, filter) => {
   return await pgDeleteDocument(connectionId, database, table, filter)
+})
+
+ipcMain.handle('postgresql:updateMany', async (_event, connectionId, database, table, filter, update) => {
+  return await pgUpdateMany(connectionId, database, table, filter, update)
+})
+
+ipcMain.handle('postgresql:deleteMany', async (_event, connectionId, database, table, filter) => {
+  return await pgDeleteMany(connectionId, database, table, filter)
+})
+
+ipcMain.handle('postgresql:countRows', async (_event, connectionId, database, table, filter) => {
+  return await pgCountRows(connectionId, database, table, filter)
 })
 
 ipcMain.handle('postgresql:aggregate', async (_event, connectionId, database, table, query) => {

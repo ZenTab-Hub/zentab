@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { RefreshCw, Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Table, FileJson, GitBranch, Sparkles, Download, X, FileSpreadsheet, GitCompareArrows } from 'lucide-react'
+import { RefreshCw, Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Table, FileJson, GitBranch, Sparkles, Download, X, FileSpreadsheet, GitCompareArrows, Layers } from 'lucide-react'
 import { Input } from '@/components/common/Input'
 import { DocumentTable } from '../components/DocumentTable'
 import { DiffViewer } from '../components/DiffViewer'
+import { BatchOperations } from '../components/BatchOperations'
 import { RedisKeyViewer } from '../components/RedisKeyViewer'
 import { KafkaMessageViewer } from '../components/KafkaMessageViewer'
 import { JSONTreeView } from '@/components/common/JSONTreeView'
@@ -35,6 +36,7 @@ export const DataViewerPage = () => {
   const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set())
   const [selectedDocsData, setSelectedDocsData] = useState<Map<string, any>>(new Map())
   const [showDiff, setShowDiff] = useState(false)
+  const [showBatch, setShowBatch] = useState(false)
 
   const activeConnection = getActiveConnection()
   const dbType = activeConnection?.type || 'mongodb'
@@ -355,6 +357,14 @@ export const DataViewerPage = () => {
             </button>
           )}
           <button
+            onClick={() => setShowBatch(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium rounded-md border hover:bg-accent transition-colors"
+            title="Batch Operations"
+          >
+            <Layers className="h-3.5 w-3.5" />
+            Batch
+          </button>
+          <button
             onClick={handleInsert}
             className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium rounded-md border hover:bg-accent transition-colors"
           >
@@ -606,6 +616,21 @@ export const DataViewerPage = () => {
         const docs = Array.from(selectedDocsData.values())
         return <DiffViewer left={docs[0]} right={docs[1]} onClose={() => setShowDiff(false)} />
       })()}
+
+      {/* Batch Operations Modal */}
+      {showBatch && (
+        <BatchOperations
+          connectionId={activeConnectionId!}
+          database={selectedDatabase!}
+          collection={selectedCollection!}
+          dbType={dbType}
+          onClose={() => setShowBatch(false)}
+          onSuccess={() => {
+            setShowBatch(false)
+            loadDocuments()
+          }}
+        />
+      )}
     </div>
   )
 }
