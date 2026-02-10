@@ -1,11 +1,11 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import fs from 'fs'
 import path from 'path'
-import { initStorage, migrateSecrets, saveConnection, getConnections, deleteConnection, saveQuery, getSavedQueries, deleteSavedQuery, addQueryHistory, getQueryHistory, getAppSetting, setAppSetting, deleteAppSetting, getQueryTemplates, saveQueryTemplate, deleteQueryTemplate, seedBuiltInTemplates } from './storage'
+import { initStorage, migrateSecrets, saveConnection, getConnections, deleteConnection, saveQuery, getSavedQueries, deleteSavedQuery, addQueryHistory, getQueryHistory, getAppSetting, setAppSetting, deleteAppSetting, getQueryTemplates, saveQueryTemplate, deleteQueryTemplate, seedBuiltInTemplates, saveAIModel, getAIModels, deleteAIModel, migrateAIModelsFromLocalStorage } from './storage'
 import * as OTPAuth from 'otpauth'
 import QRCode from 'qrcode'
 import { connectToMongoDB, disconnectFromMongoDB, pingMongoDB, listDatabases, listCollections, executeQuery, insertDocument, updateDocument, deleteDocument, updateMany, deleteMany, countDocuments, aggregate, getCollectionStats, mongoCreateDatabase, mongoDropDatabase, mongoCreateCollection, mongoDropCollection, mongoRenameCollection, mongoListIndexes, mongoCreateIndex, mongoDropIndex, explainQuery, getServerStatus, disconnectAll as disconnectAllMongo } from './mongodb'
-import { connectToPostgreSQL, disconnectFromPostgreSQL, pingPostgreSQL, pgListDatabases, pgListTables, pgExecuteQuery, pgFindQuery, pgInsertDocument, pgUpdateDocument, pgDeleteDocument, pgUpdateMany, pgDeleteMany, pgCountRows, pgAggregate, pgGetTableSchema, pgCreateDatabase, pgDropDatabase, pgCreateTable, pgDropTable, pgRenameTable, pgListIndexes, pgCreateIndex, pgDropIndex, pgExplainQuery, pgGetServerStats, disconnectAll as disconnectAllPg } from './postgresql'
+import { connectToPostgreSQL, disconnectFromPostgreSQL, pingPostgreSQL, pgListDatabases, pgListTables, pgExecuteQuery, pgFindQuery, pgInsertDocument, pgUpdateDocument, pgDeleteDocument, pgUpdateMany, pgDeleteMany, pgCountRows, pgAggregate, pgGetTableSchema, pgCreateDatabase, pgDropDatabase, pgCreateTable, pgDropTable, pgRenameTable, pgListIndexes, pgCreateIndex, pgDropIndex, pgExplainQuery, pgGetServerStats, pgGetActiveQueries, pgCancelQuery, pgTerminateBackend, pgGetTableDetails, pgListRoles, pgListExtensions, pgRunMaintenance, pgGetTableSizes, disconnectAll as disconnectAllPg } from './postgresql'
 import { connectToRedis, disconnectFromRedis, pingRedis, redisListDatabases, redisListKeys, redisGetKeyValue, redisSetKey, redisDeleteKey, redisExecuteCommand, redisGetInfo, redisFlushDatabase, redisRenameKey, redisGetServerStats, redisGetSlowLog, redisGetClients, redisMemoryUsage, redisBulkDelete, redisBulkTTL, redisAddItem, redisRemoveItem, redisSubscribe, redisUnsubscribe, redisUnsubscribeAll, redisPublish, redisGetPubSubChannels, setPubSubMessageCallback, redisStreamAdd, redisStreamRange, redisStreamLen, redisStreamDel, redisStreamTrim, redisStreamInfo, redisGetKeyEncoding, redisSetKeyTTL, redisCopyKey, disconnectAll as disconnectAllRedis } from './redis'
 import { connectToKafka, disconnectFromKafka, pingKafka, kafkaListTopics, kafkaGetTopicMetadata, kafkaConsumeMessages, kafkaProduceMessage, kafkaCreateTopic, kafkaDeleteTopic, kafkaGetClusterInfo, kafkaListConsumerGroups, kafkaDescribeConsumerGroup, kafkaGetConsumerGroupOffsets, kafkaResetConsumerGroupOffsets, kafkaDeleteConsumerGroup, kafkaGetTopicConfig, kafkaAlterTopicConfig, kafkaGetStats, disconnectAll as disconnectAllKafka } from './kafka'
 import { createSSHTunnel, closeSSHTunnel, closeAllSSHTunnels, type SSHTunnelConfig } from './ssh-tunnel'
@@ -433,6 +433,32 @@ ipcMain.handle('postgresql:getServerStats', async (_event, connectionId) => {
   return await pgGetServerStats(connectionId)
 })
 
+// PostgreSQL Tools IPC Handlers
+ipcMain.handle('postgresql:getActiveQueries', async (_event, connectionId) => {
+  return await pgGetActiveQueries(connectionId)
+})
+ipcMain.handle('postgresql:cancelQuery', async (_event, connectionId, pid) => {
+  return await pgCancelQuery(connectionId, pid)
+})
+ipcMain.handle('postgresql:terminateBackend', async (_event, connectionId, pid) => {
+  return await pgTerminateBackend(connectionId, pid)
+})
+ipcMain.handle('postgresql:getTableDetails', async (_event, connectionId, database, table) => {
+  return await pgGetTableDetails(connectionId, database, table)
+})
+ipcMain.handle('postgresql:listRoles', async (_event, connectionId) => {
+  return await pgListRoles(connectionId)
+})
+ipcMain.handle('postgresql:listExtensions', async (_event, connectionId) => {
+  return await pgListExtensions(connectionId)
+})
+ipcMain.handle('postgresql:runMaintenance', async (_event, connectionId, database, table, action) => {
+  return await pgRunMaintenance(connectionId, database, table, action)
+})
+ipcMain.handle('postgresql:getTableSizes', async (_event, connectionId) => {
+  return await pgGetTableSizes(connectionId)
+})
+
 // Redis IPC Handlers
 ipcMain.handle('redis:connect', async (_event, connectionId, connectionString, sshTunnel) => {
   const finalConnStr = await applySSHTunnel(connectionId, connectionString, sshTunnel)
@@ -748,6 +774,43 @@ ipcMain.handle('security:getIdleTimeout', async () => {
 ipcMain.handle('security:setIdleTimeout', async (_event, minutes: number) => {
   setAppSetting('idle_timeout_minutes', String(minutes))
   return { success: true }
+})
+
+// ── AI Models IPC Handlers (encrypted API keys) ──
+ipcMain.handle('aiModels:save', async (_event, model) => {
+  try {
+    saveAIModel(model)
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('aiModels:getAll', async () => {
+  try {
+    const models = getAIModels()
+    return { success: true, models }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('aiModels:delete', async (_event, id: string) => {
+  try {
+    deleteAIModel(id)
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('aiModels:migrateFromLocalStorage', async (_event, json: string) => {
+  try {
+    const count = migrateAIModelsFromLocalStorage(json)
+    return { success: true, migrated: count }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
 })
 
 // Handle uncaught exceptions

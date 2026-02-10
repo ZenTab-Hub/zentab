@@ -82,6 +82,12 @@ export interface ElectronAPI {
     getIdleTimeout: () => Promise<{ success: boolean; minutes: number }>
     setIdleTimeout: (minutes: number) => Promise<{ success: boolean }>
   }
+  aiModels: {
+    save: (model: any) => Promise<{ success: boolean; error?: string }>
+    getAll: () => Promise<{ success: boolean; models?: any[]; error?: string }>
+    delete: (id: string) => Promise<{ success: boolean; error?: string }>
+    migrateFromLocalStorage: (json: string) => Promise<{ success: boolean; migrated?: number; error?: string }>
+  }
 }
 
 declare global {

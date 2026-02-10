@@ -1,20 +1,32 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, lazy, Suspense } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { MainLayout } from '@/components/layout/MainLayout'
-import { ConnectionsPage } from '@/features/connections/pages/ConnectionsPage'
-import { QueryEditorPage } from '@/features/query-editor/pages/QueryEditorPage'
-import { DataViewerPage } from '@/features/data-viewer/pages/DataViewerPage'
-import { AggregationPage } from '@/features/aggregation/pages/AggregationPage'
-import { SchemaAnalyzerPage } from '@/features/schema-analyzer/pages/SchemaAnalyzerPage'
-import { ImportExportPage } from '@/features/import-export/pages/ImportExportPage'
-import { MonitoringPage } from '@/features/monitoring/pages/MonitoringPage'
-import { RedisToolsPage } from '@/features/redis-tools/pages/RedisToolsPage'
-import { KafkaToolsPage } from '@/features/kafka-tools/pages/KafkaToolsPage'
 import { useSettingsStore, resolveTheme, uiFontSizePx } from '@/store/settingsStore'
 import { useSecurityStore } from '@/store/securityStore'
 import { LockScreen } from '@/components/security/LockScreen'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { ToastProvider } from '@/components/common/Toast'
+
+// Lazy-loaded route pages (code splitting)
+const ConnectionsPage = lazy(() => import('@/features/connections/pages/ConnectionsPage').then(m => ({ default: m.ConnectionsPage })))
+const QueryEditorPage = lazy(() => import('@/features/query-editor/pages/QueryEditorPage').then(m => ({ default: m.QueryEditorPage })))
+const DataViewerPage = lazy(() => import('@/features/data-viewer/pages/DataViewerPage').then(m => ({ default: m.DataViewerPage })))
+const AggregationPage = lazy(() => import('@/features/aggregation/pages/AggregationPage').then(m => ({ default: m.AggregationPage })))
+const SchemaAnalyzerPage = lazy(() => import('@/features/schema-analyzer/pages/SchemaAnalyzerPage').then(m => ({ default: m.SchemaAnalyzerPage })))
+const ImportExportPage = lazy(() => import('@/features/import-export/pages/ImportExportPage').then(m => ({ default: m.ImportExportPage })))
+const MonitoringPage = lazy(() => import('@/features/monitoring/pages/MonitoringPage').then(m => ({ default: m.MonitoringPage })))
+const RedisToolsPage = lazy(() => import('@/features/redis-tools/pages/RedisToolsPage').then(m => ({ default: m.RedisToolsPage })))
+const KafkaToolsPage = lazy(() => import('@/features/kafka-tools/pages/KafkaToolsPage').then(m => ({ default: m.KafkaToolsPage })))
+const PgToolsPage = lazy(() => import('@/features/pg-tools/pages/PgToolsPage').then(m => ({ default: m.PgToolsPage })))
+
+const PageLoader = () => (
+  <div className="flex items-center justify-center h-full">
+    <div className="flex flex-col items-center gap-2">
+      <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <p className="text-xs text-muted-foreground">Loading...</p>
+    </div>
+  </div>
+)
 
 function App() {
   const theme = useSettingsStore((s) => s.theme)
@@ -78,17 +90,20 @@ function App() {
       {twoFAEnabled && isLocked && <LockScreen />}
       <Router>
         <MainLayout>
-          <Routes>
-            <Route path="/" element={<ErrorBoundary featureName="Connections"><ConnectionsPage /></ErrorBoundary>} />
-            <Route path="/query-editor" element={<ErrorBoundary featureName="Query Editor"><QueryEditorPage /></ErrorBoundary>} />
-            <Route path="/data-viewer" element={<ErrorBoundary featureName="Data Viewer"><DataViewerPage /></ErrorBoundary>} />
-            <Route path="/aggregation" element={<ErrorBoundary featureName="Aggregation"><AggregationPage /></ErrorBoundary>} />
-            <Route path="/schema-analyzer" element={<ErrorBoundary featureName="Schema Analyzer"><SchemaAnalyzerPage /></ErrorBoundary>} />
-            <Route path="/import-export" element={<ErrorBoundary featureName="Import/Export"><ImportExportPage /></ErrorBoundary>} />
-            <Route path="/monitoring" element={<ErrorBoundary featureName="Monitoring"><MonitoringPage /></ErrorBoundary>} />
-            <Route path="/redis-tools" element={<ErrorBoundary featureName="Redis Tools"><RedisToolsPage /></ErrorBoundary>} />
-            <Route path="/kafka-tools" element={<ErrorBoundary featureName="Kafka Tools"><KafkaToolsPage /></ErrorBoundary>} />
-          </Routes>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<ErrorBoundary featureName="Connections"><ConnectionsPage /></ErrorBoundary>} />
+              <Route path="/query-editor" element={<ErrorBoundary featureName="Query Editor"><QueryEditorPage /></ErrorBoundary>} />
+              <Route path="/data-viewer" element={<ErrorBoundary featureName="Data Viewer"><DataViewerPage /></ErrorBoundary>} />
+              <Route path="/aggregation" element={<ErrorBoundary featureName="Aggregation"><AggregationPage /></ErrorBoundary>} />
+              <Route path="/schema-analyzer" element={<ErrorBoundary featureName="Schema Analyzer"><SchemaAnalyzerPage /></ErrorBoundary>} />
+              <Route path="/import-export" element={<ErrorBoundary featureName="Import/Export"><ImportExportPage /></ErrorBoundary>} />
+              <Route path="/monitoring" element={<ErrorBoundary featureName="Monitoring"><MonitoringPage /></ErrorBoundary>} />
+              <Route path="/redis-tools" element={<ErrorBoundary featureName="Redis Tools"><RedisToolsPage /></ErrorBoundary>} />
+              <Route path="/kafka-tools" element={<ErrorBoundary featureName="Kafka Tools"><KafkaToolsPage /></ErrorBoundary>} />
+              <Route path="/pg-tools" element={<ErrorBoundary featureName="PG Tools"><PgToolsPage /></ErrorBoundary>} />
+            </Routes>
+          </Suspense>
         </MainLayout>
       </Router>
     </ToastProvider>

@@ -79,6 +79,17 @@ export const initStorage = () => {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS ai_models (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      apiKey TEXT NOT NULL,
+      apiUrl TEXT,
+      modelName TEXT,
+      createdAt TEXT,
+      updatedAt TEXT
+    );
   `)
 
   // Migration: add type and database columns if they don't exist
@@ -458,5 +469,78 @@ export const seedBuiltInTemplates = () => {
     stmt.run(t.id, t.name, t.query, t.category, t.description || null, t.variables || null, t.isBuiltIn, now, now)
   }
   console.log(`[Storage] Seeded ${templates.length} built-in query templates`)
+}
+
+
+// ── AI Models (encrypted API keys) ──────────────────────────
+export interface AIModelRecord {
+  id: string
+  name: string
+  provider: string
+  apiKey: string
+  apiUrl?: string | null
+  modelName?: string | null
+  createdAt?: string
+  updatedAt?: string
+}
+
+export const saveAIModel = (model: AIModelRecord) => {
+  const db = getStorage()
+  const encApiKey = encryptString(model.apiKey)
+  db.prepare(`
+    INSERT OR REPLACE INTO ai_models
+    (id, name, provider, apiKey, apiUrl, modelName, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    model.id,
+    model.name,
+    model.provider,
+    encApiKey,
+    model.apiUrl || null,
+    model.modelName || null,
+    model.createdAt || new Date().toISOString(),
+    new Date().toISOString()
+  )
+}
+
+export const getAIModels = (): AIModelRecord[] => {
+  const db = getStorage()
+  const rows = db.prepare('SELECT * FROM ai_models ORDER BY createdAt ASC').all() as any[]
+  return rows.map((row) => ({
+    ...row,
+    apiKey: decryptString(row.apiKey),
+  }))
+}
+
+export const deleteAIModel = (id: string) => {
+  const db = getStorage()
+  db.prepare('DELETE FROM ai_models WHERE id = ?').run(id)
+}
+
+/** Migrate AI models from localStorage JSON (sent from renderer) into SQLite with encryption */
+export const migrateAIModelsFromLocalStorage = (modelsJson: string) => {
+  if (!modelsJson) return 0
+  try {
+    const data = JSON.parse(modelsJson)
+    const models: AIModelRecord[] = data?.state?.models || []
+    if (models.length === 0) return 0
+
+    const db = getStorage()
+    let migrated = 0
+    for (const m of models) {
+      // Skip if already exists
+      const existing = db.prepare('SELECT id FROM ai_models WHERE id = ?').get(m.id) as any
+      if (existing) continue
+      saveAIModel(m)
+      migrated++
+    }
+    if (migrated > 0) {
+      console.log(`[Storage] Migrated ${migrated} AI model(s) from localStorage to encrypted SQLite`)
+    }
+    return migrated
+  } catch (e) {
+    console.warn('[Storage] Failed to migrate AI models from localStorage:', e)
+    return 0
+  }
 }
 

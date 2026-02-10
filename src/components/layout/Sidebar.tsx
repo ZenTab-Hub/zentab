@@ -47,6 +47,7 @@ const navigation = [
   { name: 'Schema', href: '/schema-analyzer', icon: FileJson },
   { name: 'Import/Export', href: '/import-export', icon: Upload },
   { name: 'Monitoring', href: '/monitoring', icon: Activity },
+  { name: 'PG Tools', href: '/pg-tools', icon: Settings2, dbType: 'postgresql' as const },
   { name: 'Redis Tools', href: '/redis-tools', icon: Terminal, dbType: 'redis' as const },
   { name: 'Kafka Tools', href: '/kafka-tools', icon: Radio, dbType: 'kafka' as const },
 ]

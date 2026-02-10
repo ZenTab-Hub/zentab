@@ -1,9 +1,13 @@
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { Table, FileJson, Copy, Download, FileSpreadsheet, BarChart3 } from 'lucide-react'
 import { Button } from '@/components/common/Button'
 import { formatJSON } from '@/utils/formatters'
 import { useToast } from '@/components/common/Toast'
 import { ChartView } from '@/components/charts/ChartView'
+
+const ROW_HEIGHT = 36
+const VIRTUALIZATION_THRESHOLD = 100
 
 interface QueryResultsProps {
   results: any[]
@@ -139,39 +143,105 @@ export const QueryResults = ({ results, executionTime, error }: QueryResultsProp
           <ChartView data={results} />
         </div>
       ) : viewMode === 'table' ? (
-        <div className="rounded-lg border overflow-auto max-h-[500px]">
-          <table className="w-full text-sm">
-            <thead className="bg-muted sticky top-0">
-              <tr>
-                {allKeys.map((key) => (
-                  <th key={key} className="px-4 py-2 text-left font-medium">
-                    {key}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {results.map((doc, index) => (
-                <tr key={index} className="border-t hover:bg-muted/50">
+        results.length > VIRTUALIZATION_THRESHOLD ? (
+          <VirtualizedResultsTable results={results} allKeys={allKeys} />
+        ) : (
+          <div className="rounded-lg border overflow-auto max-h-[500px]">
+            <table className="w-full text-sm">
+              <thead className="bg-muted sticky top-0">
+                <tr>
                   {allKeys.map((key) => (
-                    <td key={key} className="px-4 py-2">
-                      {typeof doc[key] === 'object' && doc[key] !== null ? (
-                        <pre className="text-xs">{JSON.stringify(doc[key], null, 2)}</pre>
-                      ) : (
-                        String(doc[key] ?? '')
-                      )}
-                    </td>
+                    <th key={key} className="px-4 py-2 text-left font-medium">
+                      {key}
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {results.map((doc, index) => (
+                  <tr key={index} className="border-t hover:bg-muted/50">
+                    {allKeys.map((key) => (
+                      <td key={key} className="px-4 py-2">
+                        {typeof doc[key] === 'object' && doc[key] !== null ? (
+                          <pre className="text-xs">{JSON.stringify(doc[key], null, 2)}</pre>
+                        ) : (
+                          String(doc[key] ?? '')
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
       ) : (
         <div className="rounded-lg border bg-muted/50 p-4 overflow-auto max-h-[500px]">
           <pre className="text-sm">{formatJSON(results)}</pre>
         </div>
       )}
+    </div>
+  )
+}
+
+// Virtualized table for large result sets
+function VirtualizedResultsTable({ results, allKeys }: { results: any[]; allKeys: string[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  const rowVirtualizer = useVirtualizer({
+    count: results.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: useCallback(() => ROW_HEIGHT, []),
+    overscan: 20,
+  })
+
+  return (
+    <div className="rounded-lg border overflow-hidden">
+      <div ref={scrollRef} className="overflow-auto max-h-[500px]">
+        <table className="w-full text-sm">
+          <thead className="bg-muted sticky top-0 z-10">
+            <tr>
+              {allKeys.map((key) => (
+                <th key={key} className="px-4 py-2 text-left font-medium">
+                  {key}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td colSpan={allKeys.length} style={{ padding: 0, height: rowVirtualizer.getTotalSize() }} className="relative">
+                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const doc = results[virtualRow.index]
+                  return (
+                    <div
+                      key={virtualRow.index}
+                      className="absolute left-0 w-full border-t hover:bg-muted/50"
+                      style={{ top: virtualRow.start, height: virtualRow.size }}
+                    >
+                      <table className="w-full text-sm" style={{ tableLayout: 'auto' }}>
+                        <tbody>
+                          <tr>
+                            {allKeys.map((key) => (
+                              <td key={key} className="px-4 py-2">
+                                {typeof doc[key] === 'object' && doc[key] !== null ? (
+                                  <pre className="text-xs">{JSON.stringify(doc[key], null, 2)}</pre>
+                                ) : (
+                                  String(doc[key] ?? '')
+                                )}
+                              </td>
+                            ))}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+                })}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

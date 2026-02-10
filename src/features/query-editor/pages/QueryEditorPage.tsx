@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react'
-import { Play, Save, History, BookOpen, X, Plus, FileSearch, FileCode2 } from 'lucide-react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { Play, Save, History, BookOpen, X, Plus, FileSearch, FileCode2, Sparkles } from 'lucide-react'
 import { Input } from '@/components/common/Input'
 import { MonacoQueryEditor } from '../components/MonacoQueryEditor'
 import { QueryResults } from '../components/QueryResults'
@@ -11,6 +11,28 @@ import { useQueryTabStore } from '@/store/queryTabStore'
 import { databaseService } from '@/services/database.service'
 import { storageService } from '@/services/storage.service'
 import { useToast } from '@/components/common/Toast'
+import { aiService } from '@/services/ai.service'
+import { useAISettingsStore } from '@/store/aiSettingsStore'
+
+/* ─── Simple Markdown renderer for AI output ─── */
+const escapeHtml = (str: string): string =>
+  str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+const renderMarkdown = (text: string): string => {
+  return text
+    .replace(/```(\w+)?\n([\s\S]*?)```/g, (_m, lang, code) =>
+      `<pre class="ai-code-block"><code class="language-${lang || ''}">${escapeHtml(code.trim())}</code></pre>`)
+    .replace(/`([^`]+)`/g, '<code class="ai-inline-code">$1</code>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/^### (.+)$/gm, '<h4 class="text-xs font-semibold mt-2 mb-1">$1</h4>')
+    .replace(/^## (.+)$/gm, '<h3 class="text-sm font-semibold mt-3 mb-1">$1</h3>')
+    .replace(/^# (.+)$/gm, '<h2 class="text-sm font-bold mt-3 mb-1">$1</h2>')
+    .replace(/^- (.+)$/gm, '<li class="ml-3">• $1</li>')
+    .replace(/^\d+\. (.+)$/gm, '<li class="ml-3">$1</li>')
+    .replace(/\n\n/g, '<br/><br/>')
+    .replace(/\n/g, '<br/>')
+}
 
 export const QueryEditorPage = () => {
   const { activeConnectionId, selectedDatabase, selectedCollection, getActiveConnection } = useConnectionStore()
@@ -39,6 +61,10 @@ export const QueryEditorPage = () => {
   const [showExplain, setShowExplain] = useState(false)
   const [explainPlan, setExplainPlan] = useState<any>(null)
   const [explainLoading, setExplainLoading] = useState(false)
+  const [showOptimize, setShowOptimize] = useState(false)
+  const [optimizeResult, setOptimizeResult] = useState('')
+  const [optimizeLoading, setOptimizeLoading] = useState(false)
+  const optimizeAbortRef = useRef<AbortController | null>(null)
   const tt = useToast()
 
   const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0]
@@ -218,6 +244,94 @@ export const QueryEditorPage = () => {
     }
   }
 
+  const handleOptimize = async () => {
+    if (!activeTab || !activeConnectionId || !selectedDatabase) {
+      tt.warning('Please select a database first'); return
+    }
+    if (!selectedCollection) {
+      tt.warning('Please select a collection/table first'); return
+    }
+    if (isRedis || isKafka) {
+      tt.warning('Optimize is not supported for this database type'); return
+    }
+    const { models, selectedModelId } = useAISettingsStore.getState()
+    const model = models.find(m => m.id === selectedModelId) || models[0]
+    if (!model) {
+      tt.warning('No AI model configured. Go to Settings → AI Models to add one.'); return
+    }
+
+    setOptimizeLoading(true)
+    setOptimizeResult('')
+    setShowOptimize(true)
+
+    try {
+      // 1. Get explain plan
+      let queryInput: any
+      if (isPostgreSQL) {
+        queryInput = activeTab.query
+      } else {
+        try { queryInput = JSON.parse(activeTab.query) } catch { queryInput = {} }
+      }
+      const explainResult = await databaseService.explainQuery(activeConnectionId, selectedDatabase, selectedCollection, queryInput, dbType)
+      if (!explainResult.success) {
+        setOptimizeResult(`❌ Failed to get explain plan: ${explainResult.error}`)
+        setOptimizeLoading(false)
+        return
+      }
+
+      // 2. Build AI prompt with query + explain plan
+      const systemPrompt = `You are a database performance expert. Analyze the query and its execution plan, then provide specific optimization suggestions.
+
+Format your response as:
+## Performance Analysis
+Brief summary of current performance.
+
+## Issues Found
+List specific performance issues (e.g., full table scan, missing indexes, inefficient joins).
+
+## Optimization Suggestions
+1. **Suggestion title** — Detailed explanation with exact code/command to implement.
+
+## Optimized Query
+If the query can be rewritten for better performance, provide the optimized version.
+
+Be specific and actionable. Include exact CREATE INDEX commands or query rewrites.`
+
+      const userPrompt = `Database: ${isPostgreSQL ? 'PostgreSQL' : 'MongoDB'}
+Table/Collection: ${selectedCollection}
+${schemaFields.length > 0 ? `Fields: ${schemaFields.join(', ')}` : ''}
+
+Query:
+${activeTab.query}
+
+Execution Plan:
+${JSON.stringify(explainResult.explain, null, 2)}`
+
+      // 3. Stream AI response
+      const controller = new AbortController()
+      optimizeAbortRef.current = controller
+
+      await aiService.chatStream(
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        model,
+        (chunk) => {
+          setOptimizeResult(prev => prev + chunk)
+        },
+        controller.signal
+      )
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        setOptimizeResult(prev => prev + `\n\n❌ Error: ${err.message}`)
+      }
+    } finally {
+      setOptimizeLoading(false)
+      optimizeAbortRef.current = null
+    }
+  }
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); executeQuery() }
@@ -307,10 +421,16 @@ export const QueryEditorPage = () => {
             <Play className="h-3 w-3" /> {activeTab?.loading ? 'Running...' : 'Run (⌘↵)'}
           </button>
           {!isRedis && !isKafka && (
-            <button onClick={handleExplain} disabled={explainLoading || !activeConnectionId}
-              className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border border-orange-500/50 text-orange-400 hover:bg-orange-500/10 transition-colors disabled:opacity-50">
-              <FileSearch className="h-3 w-3" /> {explainLoading ? 'Analyzing...' : 'Explain'}
-            </button>
+            <>
+              <button onClick={handleExplain} disabled={explainLoading || !activeConnectionId}
+                className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border border-orange-500/50 text-orange-400 hover:bg-orange-500/10 transition-colors disabled:opacity-50">
+                <FileSearch className="h-3 w-3" /> {explainLoading ? 'Analyzing...' : 'Explain'}
+              </button>
+              <button onClick={handleOptimize} disabled={optimizeLoading || !activeConnectionId}
+                className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border border-purple-500/50 text-purple-400 hover:bg-purple-500/10 transition-colors disabled:opacity-50">
+                <Sparkles className="h-3 w-3" /> {optimizeLoading ? 'Optimizing...' : 'AI Optimize'}
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -416,6 +536,57 @@ export const QueryEditorPage = () => {
             </div>
             <div className="flex-1 overflow-auto p-4">
               <ExplainPlanTree plan={explainPlan} dbType={isPostgreSQL ? 'postgresql' : 'mongodb'} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Optimization Modal */}
+      {showOptimize && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100]" onClick={() => { if (!optimizeLoading) setShowOptimize(false) }}>
+          <div className="bg-background rounded-lg w-[900px] max-h-[85vh] flex flex-col border shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-purple-400" />
+                <h3 className="text-sm font-semibold">AI Query Optimization</h3>
+                <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted">{isPostgreSQL ? 'PostgreSQL' : 'MongoDB'}</span>
+                {optimizeLoading && (
+                  <span className="flex items-center gap-1 text-[10px] text-purple-400">
+                    <span className="h-2 w-2 rounded-full bg-purple-400 animate-pulse" />
+                    Analyzing...
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {optimizeLoading && (
+                  <button onClick={() => { optimizeAbortRef.current?.abort(); setOptimizeLoading(false) }}
+                    className="px-2 py-1 text-[10px] font-medium rounded border border-red-500/50 text-red-400 hover:bg-red-500/10 transition-colors">
+                    Cancel
+                  </button>
+                )}
+                {!optimizeLoading && optimizeResult && (
+                  <button onClick={() => navigator.clipboard.writeText(optimizeResult).then(() => tt.success('Copied!'))}
+                    className="px-2 py-1 text-[10px] font-medium rounded border hover:bg-accent transition-colors">
+                    Copy
+                  </button>
+                )}
+                <button onClick={() => { if (!optimizeLoading) setShowOptimize(false) }} disabled={optimizeLoading}
+                  className="p-1 rounded hover:bg-accent disabled:opacity-50"><X className="h-4 w-4" /></button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              {optimizeResult ? (
+                <div className="text-[12px] leading-relaxed ai-msg-content"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(optimizeResult) }} />
+              ) : (
+                <div className="flex items-center justify-center h-32">
+                  <div className="text-center">
+                    <div className="h-5 w-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                    <p className="text-xs text-muted-foreground">Analyzing query performance...</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">Getting explain plan & sending to AI</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -161,6 +161,39 @@ class PostgreSQLService {
   async getServerStats(connectionId: string): Promise<any> {
     return this.callElectronAPI('getServerStats', connectionId)
   }
+
+  // PG Tools
+  async getActiveQueries(connectionId: string): Promise<any> {
+    return this.callElectronAPI('getActiveQueries', connectionId)
+  }
+
+  async cancelQuery(connectionId: string, pid: number): Promise<any> {
+    return this.callElectronAPI('cancelQuery', connectionId, pid)
+  }
+
+  async terminateBackend(connectionId: string, pid: number): Promise<any> {
+    return this.callElectronAPI('terminateBackend', connectionId, pid)
+  }
+
+  async getTableDetails(connectionId: string, database: string, table: string): Promise<any> {
+    return this.callElectronAPI('getTableDetails', connectionId, database, table)
+  }
+
+  async listRoles(connectionId: string): Promise<any> {
+    return this.callElectronAPI('listRoles', connectionId)
+  }
+
+  async listExtensions(connectionId: string): Promise<any> {
+    return this.callElectronAPI('listExtensions', connectionId)
+  }
+
+  async runMaintenance(connectionId: string, database: string, table: string, action: string): Promise<any> {
+    return this.callElectronAPI('runMaintenance', connectionId, database, table, action)
+  }
+
+  async getTableSizes(connectionId: string): Promise<any> {
+    return this.callElectronAPI('getTableSizes', connectionId)
+  }
 }
 
 export const postgresqlService = new PostgreSQLService()

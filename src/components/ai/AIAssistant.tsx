@@ -193,7 +193,7 @@ export const AIAssistant = () => {
     abortRef.current = controller
 
     try {
-      const fullText = await aiService.chatStream(
+      await aiService.chatStream(
         apiMessages,
         model,
         (chunk) => {
@@ -203,13 +203,6 @@ export const AIAssistant = () => {
         },
         controller.signal
       )
-
-      // For Gemini (non-streaming), set the full text at once
-      if (fullText && messages.find(m => m.id === assistantId)?.content === '') {
-        setMessages(prev =>
-          prev.map(m => m.id === assistantId ? { ...m, content: fullText } : m)
-        )
-      }
     } catch (err: any) {
       if (err.name !== 'AbortError') {
         setMessages(prev =>

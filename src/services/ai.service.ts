@@ -42,8 +42,8 @@ const AI_CONFIGS = {
     model: 'llama3.2',
   },
   gemini: {
-    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
-    model: 'gemini-1.5-flash',
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash',
+    model: 'gemini-2.0-flash',
   },
   custom: {
     url: '',
@@ -247,7 +247,7 @@ Output: {"filter": {}, "options": {}}`
     model: AIModel
   ): Promise<string> {
     const config = this.getConfig(model)
-    const url = `${config.url}?key=${apiKey}`
+    const url = `${config.url}:generateContent?key=${apiKey}`
 
     const response = await fetch(url, {
       method: 'POST',
@@ -332,8 +332,8 @@ Output: {"filter": {}, "options": {}}`
     const config = this.getConfig(model)
 
     if (model.provider === 'gemini') {
-      // Gemini doesn't support streaming in the same way, use non-streaming
-      return this.chatGeminiNonStream(messages, model)
+      // Gemini streaming via streamGenerateContent with SSE
+      return this.chatGeminiStream(messages, model, onChunk, signal)
     }
 
     if (model.provider === 'anthropic') {
@@ -400,12 +400,15 @@ Output: {"filter": {}, "options": {}}`
     return fullText
   }
 
-  private async chatGeminiNonStream(
+  private async chatGeminiStream(
     messages: ChatMessage[],
-    model: AIModel
+    model: AIModel,
+    onChunk: (chunk: string) => void,
+    signal?: AbortSignal
   ): Promise<string> {
     const config = this.getConfig(model)
-    const url = `${config.url}?key=${model.apiKey}`
+    // Use streamGenerateContent endpoint with alt=sse for SSE streaming
+    const url = `${config.url}:streamGenerateContent?alt=sse&key=${model.apiKey}`
 
     // Convert messages to Gemini format
     const systemMsg = messages.find(m => m.role === 'system')
@@ -432,6 +435,7 @@ Output: {"filter": {}, "options": {}}`
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal,
     })
 
     if (!response.ok) {
@@ -439,8 +443,41 @@ Output: {"filter": {}, "options": {}}`
       throw new Error(errorData.error?.message || `API error: ${response.status}`)
     }
 
-    const data = await response.json()
-    return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
+    const reader = response.body?.getReader()
+    if (!reader) throw new Error('No response body')
+
+    const decoder = new TextDecoder()
+    let fullText = ''
+    let buffer = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed || !trimmed.startsWith('data: ')) continue
+        const data = trimmed.slice(6)
+
+        try {
+          const parsed = JSON.parse(data)
+          // Gemini SSE: candidates[].content.parts[].text
+          const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text
+          if (text) {
+            fullText += text
+            onChunk(text)
+          }
+        } catch {
+          // skip malformed chunks
+        }
+      }
+    }
+
+    return fullText
   }
 
   private async chatAnthropicStream(

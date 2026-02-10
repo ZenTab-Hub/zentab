@@ -589,6 +589,212 @@ function buildWhereClause(filter: any): { whereClause: string; values: any[] } {
   return { whereClause: `WHERE ${conditions.join(' AND ')}`, values }
 }
 
+/* ── PG Tools: Active Queries ─────────────────────────── */
+
+export const pgGetActiveQueries = async (connectionId: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const result = await connection.pool.query(
+      `SELECT pid, usename, datname, client_addr, state, query,
+              query_start, state_change,
+              EXTRACT(EPOCH FROM (now() - query_start))::numeric(10,2) AS duration_sec,
+              wait_event_type, wait_event, backend_type
+       FROM pg_stat_activity
+       WHERE pid <> pg_backend_pid()
+       ORDER BY query_start DESC NULLS LAST`
+    )
+    return { success: true, queries: result.rows }
+  } catch (error: any) {
+    console.error('PG active queries error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export const pgCancelQuery = async (connectionId: string, pid: number) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+    await connection.pool.query('SELECT pg_cancel_backend($1)', [pid])
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+export const pgTerminateBackend = async (connectionId: string, pid: number) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+    await connection.pool.query('SELECT pg_terminate_backend($1)', [pid])
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+/* ── PG Tools: Table Details (constraints, FK, triggers) ── */
+
+export const pgGetTableDetails = async (connectionId: string, _database: string, table: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    // Constraints
+    const constraintsResult = await connection.pool.query(
+      `SELECT con.conname AS name, con.contype AS type,
+              pg_get_constraintdef(con.oid) AS definition
+       FROM pg_constraint con
+       JOIN pg_class rel ON rel.oid = con.conrelid
+       JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+       WHERE rel.relname = $1 AND nsp.nspname = 'public'
+       ORDER BY con.contype, con.conname`,
+      [table]
+    )
+
+    // Foreign keys (outgoing)
+    const fkResult = await connection.pool.query(
+      `SELECT tc.constraint_name, kcu.column_name,
+              ccu.table_name AS foreign_table, ccu.column_name AS foreign_column,
+              rc.update_rule, rc.delete_rule
+       FROM information_schema.table_constraints tc
+       JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
+       JOIN information_schema.constraint_column_usage ccu ON ccu.constraint_name = tc.constraint_name
+       JOIN information_schema.referential_constraints rc ON rc.constraint_name = tc.constraint_name
+       WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_name = $1 AND tc.table_schema = 'public'`,
+      [table]
+    )
+
+    // Triggers
+    const triggersResult = await connection.pool.query(
+      `SELECT trigger_name, event_manipulation, action_timing, action_statement
+       FROM information_schema.triggers
+       WHERE event_object_table = $1 AND event_object_schema = 'public'
+       ORDER BY trigger_name`,
+      [table]
+    )
+
+    // Table size
+    const sizeResult = await connection.pool.query(
+      `SELECT pg_size_pretty(pg_total_relation_size(quote_ident($1))) AS total_size,
+              pg_size_pretty(pg_relation_size(quote_ident($1))) AS table_size,
+              pg_size_pretty(pg_indexes_size(quote_ident($1))) AS indexes_size`,
+      [table]
+    )
+
+    return {
+      success: true,
+      constraints: constraintsResult.rows,
+      foreignKeys: fkResult.rows,
+      triggers: triggersResult.rows,
+      size: sizeResult.rows[0] || {},
+    }
+  } catch (error: any) {
+    console.error('PG table details error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+/* ── PG Tools: Roles & Users ─────────────────────────── */
+
+export const pgListRoles = async (connectionId: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const result = await connection.pool.query(
+      `SELECT rolname, rolsuper, rolcreaterole, rolcreatedb, rolcanlogin,
+              rolreplication, rolconnlimit, rolvaliduntil,
+              ARRAY(SELECT b.rolname FROM pg_catalog.pg_auth_members m
+                    JOIN pg_catalog.pg_roles b ON m.roleid = b.oid
+                    WHERE m.member = r.oid) AS member_of
+       FROM pg_catalog.pg_roles r
+       ORDER BY rolname`
+    )
+    return { success: true, roles: result.rows }
+  } catch (error: any) {
+    console.error('PG list roles error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+/* ── PG Tools: Extensions ────────────────────────────── */
+
+export const pgListExtensions = async (connectionId: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const result = await connection.pool.query(
+      `SELECT e.extname AS name, e.extversion AS version, n.nspname AS schema,
+              c.description
+       FROM pg_extension e
+       JOIN pg_namespace n ON n.oid = e.extnamespace
+       LEFT JOIN pg_description c ON c.objoid = e.oid
+       ORDER BY e.extname`
+    )
+    return { success: true, extensions: result.rows }
+  } catch (error: any) {
+    console.error('PG list extensions error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+/* ── PG Tools: Maintenance (VACUUM / ANALYZE / REINDEX) ── */
+
+export const pgRunMaintenance = async (
+  connectionId: string,
+  _database: string,
+  table: string,
+  action: 'vacuum' | 'vacuum_full' | 'analyze' | 'reindex'
+) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const safeTable = table.replace(/[^a-zA-Z0-9_]/g, '')
+    let sql = ''
+    switch (action) {
+      case 'vacuum': sql = `VACUUM "${safeTable}"`; break
+      case 'vacuum_full': sql = `VACUUM FULL "${safeTable}"`; break
+      case 'analyze': sql = `ANALYZE "${safeTable}"`; break
+      case 'reindex': sql = `REINDEX TABLE "${safeTable}"`; break
+    }
+    await connection.pool.query(sql)
+    return { success: true }
+  } catch (error: any) {
+    console.error('PG maintenance error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+/* ── PG Tools: Table Sizes ───────────────────────────── */
+
+export const pgGetTableSizes = async (connectionId: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+
+    const result = await connection.pool.query(
+      `SELECT relname AS name,
+              pg_size_pretty(pg_total_relation_size(c.oid)) AS total_size,
+              pg_total_relation_size(c.oid) AS total_bytes,
+              pg_size_pretty(pg_relation_size(c.oid)) AS table_size,
+              pg_size_pretty(pg_indexes_size(c.oid)) AS indexes_size,
+              n_live_tup AS row_estimate
+       FROM pg_class c
+       LEFT JOIN pg_stat_user_tables s ON s.relname = c.relname
+       WHERE c.relkind = 'r' AND c.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+       ORDER BY pg_total_relation_size(c.oid) DESC`
+    )
+    return { success: true, tables: result.rows }
+  } catch (error: any) {
+    console.error('PG table sizes error:', error)
+    return { success: false, error: error.message }
+  }
+}
+
 /** Disconnect all PostgreSQL connections (used on app quit) */
 export const disconnectAll = async () => {
   const tasks = Array.from(connections.keys()).map((id) => disconnectFromPostgreSQL(id).catch(() => {}))

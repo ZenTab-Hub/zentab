@@ -134,6 +134,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('postgresql:explainQuery', connectionId, database, table, query),
     getServerStats: (connectionId: string) =>
       ipcRenderer.invoke('postgresql:getServerStats', connectionId),
+    // PG Tools
+    getActiveQueries: (connectionId: string) =>
+      ipcRenderer.invoke('postgresql:getActiveQueries', connectionId),
+    cancelQuery: (connectionId: string, pid: number) =>
+      ipcRenderer.invoke('postgresql:cancelQuery', connectionId, pid),
+    terminateBackend: (connectionId: string, pid: number) =>
+      ipcRenderer.invoke('postgresql:terminateBackend', connectionId, pid),
+    getTableDetails: (connectionId: string, database: string, table: string) =>
+      ipcRenderer.invoke('postgresql:getTableDetails', connectionId, database, table),
+    listRoles: (connectionId: string) =>
+      ipcRenderer.invoke('postgresql:listRoles', connectionId),
+    listExtensions: (connectionId: string) =>
+      ipcRenderer.invoke('postgresql:listExtensions', connectionId),
+    runMaintenance: (connectionId: string, database: string, table: string, action: string) =>
+      ipcRenderer.invoke('postgresql:runMaintenance', connectionId, database, table, action),
+    getTableSizes: (connectionId: string) =>
+      ipcRenderer.invoke('postgresql:getTableSizes', connectionId),
   },
 
   // Redis operations
@@ -304,6 +321,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getIdleTimeout: () => ipcRenderer.invoke('security:getIdleTimeout'),
     setIdleTimeout: (minutes: number) => ipcRenderer.invoke('security:setIdleTimeout', minutes),
   },
+
+  // AI Models (encrypted API keys in SQLite)
+  aiModels: {
+    save: (model: any) => ipcRenderer.invoke('aiModels:save', model),
+    getAll: () => ipcRenderer.invoke('aiModels:getAll'),
+    delete: (id: string) => ipcRenderer.invoke('aiModels:delete', id),
+    migrateFromLocalStorage: (json: string) => ipcRenderer.invoke('aiModels:migrateFromLocalStorage', json),
+  },
 })
 
 // Type definitions for TypeScript
@@ -413,6 +438,12 @@ export interface ElectronAPI {
     get2FAStatus: () => Promise<{ success: boolean; enabled?: boolean; hasSecret?: boolean; error?: string }>
     getIdleTimeout: () => Promise<{ success: boolean; minutes: number }>
     setIdleTimeout: (minutes: number) => Promise<{ success: boolean }>
+  }
+  aiModels: {
+    save: (model: any) => Promise<{ success: boolean; error?: string }>
+    getAll: () => Promise<{ success: boolean; models?: any[]; error?: string }>
+    delete: (id: string) => Promise<{ success: boolean; error?: string }>
+    migrateFromLocalStorage: (json: string) => Promise<{ success: boolean; migrated?: number; error?: string }>
   }
 }
 
