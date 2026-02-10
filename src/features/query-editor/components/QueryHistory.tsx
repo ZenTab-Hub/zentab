@@ -4,6 +4,7 @@ import { Button } from '@/components/common/Button'
 import { storageService } from '@/services/storage.service'
 import { formatDistanceToNow } from 'date-fns'
 import { useToast } from '@/components/common/Toast'
+import { EmptyState } from '@/components/common/EmptyState'
 
 interface QueryHistoryItem {
   id: string
@@ -66,13 +67,11 @@ export const QueryHistory = ({ onSelectQuery }: QueryHistoryProps) => {
 
   if (history.length === 0) {
     return (
-      <div className="p-8 text-center">
-        <Clock className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-        <p className="text-muted-foreground">No query history yet</p>
-        <p className="text-sm text-muted-foreground mt-2">
-          Your executed queries will appear here
-        </p>
-      </div>
+      <EmptyState
+        icon={Clock}
+        title="No query history yet"
+        description="Your executed queries will appear here"
+      />
     )
   }
 

@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Table, FileJson, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/common/Button'
 import { formatJSON } from '@/utils/formatters'
+import { TableSkeleton } from '@/components/common/Skeleton'
+import { EmptyState } from '@/components/common/EmptyState'
 
 interface PipelinePreviewProps {
   results: any[]
@@ -30,22 +32,17 @@ export const PipelinePreview = ({
   }
 
   if (loading) {
-    return (
-      <div className="rounded-lg border bg-muted/50 p-8 text-center">
-        <RefreshCw className="mx-auto h-8 w-8 text-muted-foreground animate-spin mb-4" />
-        <p className="text-muted-foreground">Executing pipeline...</p>
-      </div>
-    )
+    return <TableSkeleton rows={6} columns={4} />
   }
 
   if (!results || results.length === 0) {
     return (
-      <div className="rounded-lg border bg-muted/50 p-8 text-center">
-        <p className="text-muted-foreground">No results</p>
-        <p className="text-sm text-muted-foreground mt-2">
-          Click "Run Pipeline" to see results
-        </p>
-      </div>
+      <EmptyState
+        icon={Table}
+        title="No results"
+        description='Click "Run Pipeline" to see results'
+        compact
+      />
     )
   }
 

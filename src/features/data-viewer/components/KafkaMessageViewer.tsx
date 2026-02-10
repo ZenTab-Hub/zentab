@@ -4,6 +4,7 @@ import { Input } from '@/components/common/Input'
 import { useConnectionStore } from '@/store/connectionStore'
 import { databaseService } from '@/services/database.service'
 import { useToast } from '@/components/common/Toast'
+import { Skeleton } from '@/components/common/Skeleton'
 
 export const KafkaMessageViewer = () => {
   const { activeConnectionId, selectedDatabase, selectedCollection } = useConnectionStore()
@@ -241,7 +242,9 @@ export const KafkaMessageViewer = () => {
             </button>
           </div>
           {partitionLoading ? (
-            <p className="text-[10px] text-muted-foreground">Loading...</p>
+            <div className="space-y-1.5">
+              {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-3 w-full" />)}
+            </div>
           ) : partitionDetails?.partitions ? (
             <div className="overflow-x-auto">
               <table className="w-full text-[11px]">

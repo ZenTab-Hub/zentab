@@ -8,6 +8,7 @@ import { RedisKeyViewer } from '../components/RedisKeyViewer'
 import { KafkaMessageViewer } from '../components/KafkaMessageViewer'
 import { SQLRowEditorModal } from '../components/SQLRowEditorModal'
 import { JSONTreeView } from '@/components/common/JSONTreeView'
+import { TableSkeleton } from '@/components/common/Skeleton'
 import { useConnectionStore } from '@/store/connectionStore'
 import { useAISettingsStore } from '@/store/aiSettingsStore'
 import { databaseService } from '@/services/database.service'
@@ -540,9 +541,7 @@ export const DataViewerPage = () => {
       {/* Content */}
       <div className="flex-1 overflow-auto rounded-md border bg-card">
         {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-xs text-muted-foreground">Loading...</p>
-          </div>
+          <TableSkeleton rows={12} columns={5} />
         ) : viewMode === 'table' ? (
           <DocumentTable documents={documents} onEdit={handleEdit} onDelete={handleDelete}
             sortField={sortField} sortDirection={sortDirection}

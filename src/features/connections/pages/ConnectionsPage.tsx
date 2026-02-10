@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Download, Upload } from 'lucide-react'
+import { Plus, Download, Upload, Database } from 'lucide-react'
 import { ConnectionForm } from '../components/ConnectionForm'
 import { ConnectionList } from '../components/ConnectionList'
 import { useConnectionStore } from '@/store/connectionStore'
 import { storageService } from '@/services/storage.service'
 import { databaseService } from '@/services/database.service'
 import { useToast } from '@/components/common/Toast'
+import { CardGridSkeleton } from '@/components/common/Skeleton'
+import { EmptyState } from '@/components/common/EmptyState'
 import type { DatabaseConnection } from '@/types'
 
 export const ConnectionsPage = () => {
@@ -321,29 +323,17 @@ export const ConnectionsPage = () => {
       </div>
 
       {loading && (
-        <div className="rounded-md border bg-card p-3 text-center mb-4">
-          <p className="text-xs text-muted-foreground">Connecting...</p>
-        </div>
+        <CardGridSkeleton cards={3} className="mb-4" />
       )}
 
-      {connections.length === 0 ? (
+      {!loading && connections.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center max-w-sm">
-            <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
-              <Plus className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <h3 className="text-sm font-semibold mb-1">No connections yet</h3>
-            <p className="text-xs text-muted-foreground mb-4">
-              Create your first database connection to get started
-            </p>
-            <button
-              onClick={() => setShowForm(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Create Connection
-            </button>
-          </div>
+          <EmptyState
+            icon={Database}
+            title="No connections yet"
+            description="Create your first database connection to get started"
+            action={{ label: 'Create Connection', onClick: () => setShowForm(true) }}
+          />
         </div>
       ) : (
         <ConnectionList

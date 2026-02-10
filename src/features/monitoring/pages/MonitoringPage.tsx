@@ -3,6 +3,7 @@ import { Activity, RefreshCw, Wifi, WifiOff, HardDrive, Cpu, Database, ArrowUpDo
 import { useConnectionStore } from '@/store/connectionStore'
 import { databaseService } from '@/services/database.service'
 import { DatabaseIcon } from '@/components/common/DatabaseIcon'
+import { StatsSkeleton } from '@/components/common/Skeleton'
 import { formatBytes, formatCompactNumber, formatUptime } from '@/utils/formatters'
 
 const INTERVALS = [
@@ -128,7 +129,7 @@ export const MonitoringPage = () => {
         {stats && dbType === 'postgresql' && <PgStats stats={stats} />}
         {stats && dbType === 'redis' && <RedisStats stats={stats} />}
         {stats && dbType === 'kafka' && <KafkaStats stats={stats} />}
-        {!stats && !error && <div className="text-center text-sm text-muted-foreground py-10">Loading server stats...</div>}
+        {!stats && !error && <StatsSkeleton />}
       </div>
     </div>
   )

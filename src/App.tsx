@@ -6,6 +6,7 @@ import { useSecurityStore } from '@/store/securityStore'
 import { LockScreen } from '@/components/security/LockScreen'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { ToastProvider } from '@/components/common/Toast'
+import { PageSkeleton } from '@/components/common/Skeleton'
 
 // Lazy-loaded route pages (code splitting)
 const ConnectionsPage = lazy(() => import('@/features/connections/pages/ConnectionsPage').then(m => ({ default: m.ConnectionsPage })))
@@ -19,14 +20,7 @@ const RedisToolsPage = lazy(() => import('@/features/redis-tools/pages/RedisTool
 const KafkaToolsPage = lazy(() => import('@/features/kafka-tools/pages/KafkaToolsPage').then(m => ({ default: m.KafkaToolsPage })))
 const PgToolsPage = lazy(() => import('@/features/pg-tools/pages/PgToolsPage').then(m => ({ default: m.PgToolsPage })))
 
-const PageLoader = () => (
-  <div className="flex items-center justify-center h-full">
-    <div className="flex flex-col items-center gap-2">
-      <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      <p className="text-xs text-muted-foreground">Loading...</p>
-    </div>
-  </div>
-)
+const PageLoader = () => <PageSkeleton />
 
 function App() {
   const theme = useSettingsStore((s) => s.theme)

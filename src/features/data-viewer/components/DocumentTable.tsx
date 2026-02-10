@@ -4,6 +4,7 @@ import { Edit, Trash2, Copy, ChevronDown, ChevronRight, ArrowUp, ArrowDown, Chev
 import { Button } from '@/components/common/Button'
 import { formatJSON } from '@/utils/formatters'
 import { useToast } from '@/components/common/Toast'
+import { NoDocuments } from '@/components/common/EmptyState'
 
 interface DocumentTableProps {
   documents: any[]
@@ -28,11 +29,7 @@ export const DocumentTable = ({ documents, onEdit, onDelete, onSort, sortField, 
   const [filteringColumn, setFilteringColumn] = useState<string | null>(null)
 
   if (documents.length === 0) {
-    return (
-      <div className="rounded-lg border bg-card p-8 text-center">
-        <p className="text-muted-foreground">No documents found</p>
-      </div>
-    )
+    return <NoDocuments />
   }
 
   const allKeys = Array.from(new Set(documents.flatMap((doc) => Object.keys(doc))))

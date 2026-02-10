@@ -5,6 +5,7 @@ import { useConnectionStore } from '@/store/connectionStore'
 import { databaseService } from '@/services/database.service'
 import { useToast } from '@/components/common/Toast'
 import { formatBytes } from '@/utils/formatters'
+import { TableSkeleton } from '@/components/common/Skeleton'
 
 const TYPE_COLORS: Record<string, string> = {
   string: 'bg-green-500/15 text-green-400',
@@ -627,9 +628,7 @@ export const RedisKeyViewer = () => {
       {/* Content */}
       <div className="flex-1 overflow-auto rounded-md border bg-card">
         {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-xs text-muted-foreground">Loading...</p>
-          </div>
+          <TableSkeleton rows={10} columns={3} />
         ) : editing ? (
           <div className="p-3 space-y-3">
             <div className="flex items-center justify-between">

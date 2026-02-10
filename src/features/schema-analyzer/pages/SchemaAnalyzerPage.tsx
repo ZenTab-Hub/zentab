@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { Search, Download, BookOpen, RefreshCw, Key, Radio } from 'lucide-react'
+import { Search, Download, RefreshCw, Key, Radio } from 'lucide-react'
 import { Input } from '@/components/common/Input'
 import { SchemaVisualization } from '../components/SchemaVisualization'
 import { useConnectionStore } from '@/store/connectionStore'
 import { databaseService } from '@/services/database.service'
 import { useToast } from '@/components/common/Toast'
+import { TableSkeleton } from '@/components/common/Skeleton'
+import { NoSchema, NoConnection } from '@/components/common/EmptyState'
 
 interface FieldInfo {
   name: string
@@ -207,12 +209,11 @@ export const SchemaAnalyzerPage = () => {
 
       {!activeConnectionId || !selectedDatabase || !selectedCollection ? (
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <BookOpen className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-            <p className="text-xs text-muted-foreground">
-              Select a database and table/collection to analyze schema
-            </p>
-          </div>
+          <NoConnection />
+        </div>
+      ) : loading ? (
+        <div className="flex-1 p-4">
+          <TableSkeleton rows={8} columns={4} />
         </div>
       ) : schema ? (
         <div className="flex-1 overflow-auto">
@@ -220,13 +221,7 @@ export const SchemaAnalyzerPage = () => {
         </div>
       ) : (
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <Search className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-            <p className="text-sm font-medium mb-1">No schema analysis yet</p>
-            <p className="text-xs text-muted-foreground">
-              Click "Analyze" to view schema for {selectedCollection}
-            </p>
-          </div>
+          <NoSchema collection={selectedCollection} onAnalyze={analyzeSchema} />
         </div>
       )}
     </div>

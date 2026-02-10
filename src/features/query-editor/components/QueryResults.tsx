@@ -5,6 +5,7 @@ import { Button } from '@/components/common/Button'
 import { formatJSON } from '@/utils/formatters'
 import { useToast } from '@/components/common/Toast'
 import { ChartView } from '@/components/charts/ChartView'
+import { NoResults } from '@/components/common/EmptyState'
 
 const ROW_HEIGHT = 36
 const VIRTUALIZATION_THRESHOLD = 100
@@ -73,11 +74,7 @@ export const QueryResults = ({ results, executionTime, error }: QueryResultsProp
   }
 
   if (!results || results.length === 0) {
-    return (
-      <div className="rounded-lg border bg-muted/50 p-8 text-center">
-        <p className="text-muted-foreground">No results to display</p>
-      </div>
-    )
+    return <NoResults />
   }
 
   // Get all unique keys from results

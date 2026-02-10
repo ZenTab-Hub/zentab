@@ -3,6 +3,8 @@ import {
   Radio, RefreshCw, Trash2, ChevronDown, ChevronRight, Plus, Search,
 } from 'lucide-react'
 import { databaseService } from '@/services/database.service'
+import { TableSkeleton } from '@/components/common/Skeleton'
+import { NoTopics } from '@/components/common/EmptyState'
 
 export const KafkaTopicsTab = ({ connectionId, tt }: { connectionId: string; tt: any }) => {
   const [topics, setTopics] = useState<any[]>([])
@@ -117,8 +119,8 @@ export const KafkaTopicsTab = ({ connectionId, tt }: { connectionId: string; tt:
       )}
 
       {/* Topics List */}
-      {loading && topics.length === 0 && <div className="text-center py-10 text-sm text-muted-foreground">Loading topics...</div>}
-      {!loading && topics.length === 0 && <div className="text-center py-10 text-sm text-muted-foreground">No topics found. Create one to get started.</div>}
+      {loading && topics.length === 0 && <TableSkeleton rows={5} columns={3} />}
+      {!loading && topics.length === 0 && <NoTopics onCreate={() => setShowCreate(true)} />}
 
       <div className="space-y-1">
         {filtered.map((t: any) => {

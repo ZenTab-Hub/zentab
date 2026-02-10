@@ -4,6 +4,8 @@ import {
   ChevronDown, ChevronRight,
 } from 'lucide-react'
 import { databaseService } from '@/services/database.service'
+import { TableSkeleton } from '@/components/common/Skeleton'
+import { NoConsumerGroups } from '@/components/common/EmptyState'
 
 /* ── Consumer Group Detail (expanded) ── */
 const ConsumerGroupDetail = ({ groupId, detail, offsets, loading, onResetOffsets }: {
@@ -173,12 +175,8 @@ export const KafkaConsumerGroupsTab = ({ connectionId, tt }: { connectionId: str
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
         </button>
       </div>
-      {groups.length === 0 && !loading && (
-        <div className="text-center py-10 text-sm text-muted-foreground">No consumer groups found</div>
-      )}
-      {loading && groups.length === 0 && (
-        <div className="text-center py-10 text-sm text-muted-foreground">Loading consumer groups...</div>
-      )}
+      {groups.length === 0 && !loading && <NoConsumerGroups />}
+      {loading && groups.length === 0 && <TableSkeleton rows={4} columns={3} />}
       <div className="space-y-1">
         {groups.map((g: any) => {
           const gid = g.groupId

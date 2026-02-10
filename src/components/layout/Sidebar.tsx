@@ -25,6 +25,7 @@ import {
   Eye,
   Settings2,
   Users,
+  Keyboard,
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { useConnectionStore } from '@/store/connectionStore'
@@ -75,6 +76,13 @@ export const Sidebar = () => {
   const [showRenameColl, setShowRenameColl] = useState<{ db: string; coll: string } | null>(null)
   const [showIndexManager, setShowIndexManager] = useState<{ db: string; coll: string } | null>(null)
   const [indexes, setIndexes] = useState<any[]>([])
+
+  // Listen for global settings open event (from Cmd+, shortcut)
+  useEffect(() => {
+    const openSettings = () => setShowSettings(true)
+    window.addEventListener('zentab:openSettings', openSettings)
+    return () => window.removeEventListener('zentab:openSettings', openSettings)
+  }, [])
 
   // Close context menu on click outside
   useEffect(() => {
@@ -231,6 +239,13 @@ export const Sidebar = () => {
         })}
         <div className="flex-1" />
         <button
+          onClick={() => window.dispatchEvent(new CustomEvent('zentab:openShortcuts'))}
+          className="p-2 rounded text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+          title="Keyboard Shortcuts"
+        >
+          <Keyboard className="h-4 w-4" />
+        </button>
+        <button
           onClick={() => setShowSettings(true)}
           className="p-2 rounded text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
           title="Settings"
@@ -374,7 +389,12 @@ export const Sidebar = () => {
       {/* Empty state when no databases */}
       {activeConnectionId && databases.length === 0 && (
         <div className="flex-1 flex items-center justify-center p-4">
-          <p className="text-[11px] text-sidebar-foreground text-center">No databases found</p>
+          <div className="text-center">
+            <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-2">
+              <Database className="h-5 w-5 text-muted-foreground/50" />
+            </div>
+            <p className="text-[11px] text-sidebar-foreground">No databases found</p>
+          </div>
         </div>
       )}
 
@@ -412,14 +432,23 @@ export const Sidebar = () => {
         </div>
       </nav>
 
-      {/* Settings */}
-      <div className="border-t border-border/50 p-1.5">
+      {/* Settings & Shortcuts */}
+      <div className="border-t border-border/50 p-1.5 space-y-0.5">
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent('zentab:openShortcuts'))}
+          className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-[11px] font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
+        >
+          <Keyboard className="h-3.5 w-3.5" />
+          Shortcuts
+          <span className="ml-auto text-[9px] text-muted-foreground font-mono">{navigator.platform.includes('Mac') ? '⌘/' : 'Ctrl+/'}</span>
+        </button>
         <button
           onClick={() => setShowSettings(true)}
           className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-[11px] font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
         >
           <Settings className="h-3.5 w-3.5" />
           Settings
+          <span className="ml-auto text-[9px] text-muted-foreground font-mono">{navigator.platform.includes('Mac') ? '⌘,' : 'Ctrl+,'}</span>
         </button>
       </div>
 
