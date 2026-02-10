@@ -93,6 +93,14 @@ export const initStorage = () => {
       db.exec("ALTER TABLE connections ADD COLUMN database TEXT")
       console.log('Migration: added database column to connections')
     }
+    if (!columns.includes('kafkaSASL')) {
+      db.exec("ALTER TABLE connections ADD COLUMN kafkaSASL TEXT")
+      console.log('Migration: added kafkaSASL column to connections')
+    }
+    if (!columns.includes('kafkaSSL')) {
+      db.exec("ALTER TABLE connections ADD COLUMN kafkaSSL INTEGER")
+      console.log('Migration: added kafkaSSL column to connections')
+    }
   } catch (e) {
     console.warn('Migration check failed:', e)
   }
@@ -138,23 +146,33 @@ const decryptString = (stored: string): string => {
   return stored // fallback: return as-is
 }
 
-/** Migrate existing plaintext passwords to encrypted form */
-export const migratePasswords = () => {
+/** Migrate ALL existing plaintext secrets to encrypted form */
+export const migrateSecrets = () => {
   if (!db) return
   if (!safeStorage.isEncryptionAvailable()) {
-    console.warn('safeStorage not available — skipping password migration')
+    console.warn('safeStorage not available — skipping secrets migration')
     return
   }
 
-  const rows = db.prepare('SELECT id, password, connectionString FROM connections').all() as any[]
-  const updateStmt = db.prepare('UPDATE connections SET password = ?, connectionString = ? WHERE id = ?')
+  // ── 1. Migrate connection secrets ──
+  const rows = db.prepare('SELECT id, username, password, connectionString, sshTunnel, kafkaSASL FROM connections').all() as any[]
+  const updateStmt = db.prepare(
+    'UPDATE connections SET username = ?, password = ?, connectionString = ?, sshTunnel = ?, kafkaSASL = ? WHERE id = ?'
+  )
 
   let migrated = 0
   for (const row of rows) {
     let changed = false
+    let username = row.username
     let pwd = row.password
     let cs = row.connectionString
+    let ssh = row.sshTunnel
+    let sasl = row.kafkaSASL
 
+    if (username && !username.startsWith(ENCRYPTED_PREFIX)) {
+      username = encryptString(username)
+      changed = true
+    }
     if (pwd && !pwd.startsWith(ENCRYPTED_PREFIX)) {
       pwd = encryptString(pwd)
       changed = true
@@ -163,23 +181,48 @@ export const migratePasswords = () => {
       cs = encryptString(cs)
       changed = true
     }
+    if (ssh && !ssh.startsWith(ENCRYPTED_PREFIX)) {
+      ssh = encryptString(ssh)
+      changed = true
+    }
+    if (sasl && !sasl.startsWith(ENCRYPTED_PREFIX)) {
+      sasl = encryptString(sasl)
+      changed = true
+    }
     if (changed) {
-      updateStmt.run(pwd, cs, row.id)
+      updateStmt.run(username, pwd, cs, ssh, sasl, row.id)
       migrated++
     }
   }
   if (migrated > 0) {
-    console.log(`[Storage] Migrated ${migrated} connection(s) to encrypted passwords`)
+    console.log(`[Storage] Migrated ${migrated} connection(s) to encrypted secrets`)
+  }
+
+  // ── 2. Migrate sensitive app_settings ──
+  let settingsMigrated = 0
+  for (const key of SENSITIVE_SETTING_KEYS) {
+    const row = db.prepare('SELECT value FROM app_settings WHERE key = ?').get(key) as any
+    if (row?.value && !row.value.startsWith(ENCRYPTED_PREFIX)) {
+      const encrypted = encryptString(row.value)
+      db.prepare('UPDATE app_settings SET value = ? WHERE key = ?').run(encrypted, key)
+      settingsMigrated++
+    }
+  }
+  if (settingsMigrated > 0) {
+    console.log(`[Storage] Migrated ${settingsMigrated} app setting(s) to encrypted secrets`)
   }
 }
+
+/** @deprecated Use migrateSecrets() instead */
+export const migratePasswords = migrateSecrets
 
 // Connection operations
 export const saveConnection = (connection: DatabaseConnection) => {
   const db = getStorage()
   const stmt = db.prepare(`
     INSERT OR REPLACE INTO connections
-    (id, name, type, host, port, username, password, authDatabase, database, connectionString, sshTunnel, createdAt, updatedAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (id, name, type, host, port, username, password, authDatabase, database, connectionString, sshTunnel, kafkaSASL, kafkaSSL, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
 
   // Convert Date to ISO string for SQLite
@@ -190,12 +233,17 @@ export const saveConnection = (connection: DatabaseConnection) => {
     ? connection.updatedAt.toISOString()
     : connection.updatedAt
 
-  // Encrypt sensitive fields before storing
+  // Encrypt ALL sensitive fields before storing
+  const encUsername = connection.username ? encryptString(connection.username) : null
   const encPassword = connection.password ? encryptString(connection.password) : null
   const encConnectionString = connection.connectionString ? encryptString(connection.connectionString) : null
 
-  // Serialise SSH tunnel config as JSON string
+  // Serialise SSH tunnel config as JSON string, then encrypt (contains password/privateKey)
   const sshTunnelJson = connection.sshTunnel ? JSON.stringify(connection.sshTunnel) : null
+  const encSshTunnel = sshTunnelJson ? encryptString(sshTunnelJson) : null
+
+  // Encrypt Kafka SASL config (contains credentials)
+  const encKafkaSASL = (connection as any).kafkaSASL ? encryptString((connection as any).kafkaSASL) : null
 
   stmt.run(
     connection.id,
@@ -203,12 +251,14 @@ export const saveConnection = (connection: DatabaseConnection) => {
     connection.type || 'mongodb',
     connection.host || null,
     connection.port || null,
-    connection.username || null,
+    encUsername,
     encPassword,
     connection.authDatabase || null,
     connection.database || null,
     encConnectionString,
-    sshTunnelJson,
+    encSshTunnel,
+    encKafkaSASL,
+    (connection as any).kafkaSSL ? 1 : 0,
     createdAt,
     updatedAt
   )
@@ -221,13 +271,19 @@ export const getConnections = (): DatabaseConnection[] => {
   const stmt = db.prepare('SELECT * FROM connections ORDER BY updatedAt DESC')
   const rows = stmt.all() as any[]
 
-  // Decrypt sensitive fields and parse JSON fields after reading
-  return rows.map((row) => ({
-    ...row,
-    password: row.password ? decryptString(row.password) : row.password,
-    connectionString: row.connectionString ? decryptString(row.connectionString) : row.connectionString,
-    sshTunnel: row.sshTunnel ? JSON.parse(row.sshTunnel) : undefined,
-  }))
+  // Decrypt ALL sensitive fields and parse JSON fields after reading
+  return rows.map((row) => {
+    const decSshTunnel = row.sshTunnel ? decryptString(row.sshTunnel) : null
+    return {
+      ...row,
+      username: row.username ? decryptString(row.username) : row.username,
+      password: row.password ? decryptString(row.password) : row.password,
+      connectionString: row.connectionString ? decryptString(row.connectionString) : row.connectionString,
+      sshTunnel: decSshTunnel ? JSON.parse(decSshTunnel) : undefined,
+      kafkaSSL: row.kafkaSSL === 1,
+      kafkaSASL: row.kafkaSASL ? decryptString(row.kafkaSASL) : undefined,
+    }
+  })
 }
 
 export const deleteConnection = (id: string) => {
@@ -310,15 +366,20 @@ export const getQueryHistory = (limit = 50) => {
 }
 
 // App settings (key-value store for 2FA, etc.)
+// Keys whose values must be encrypted at rest
+const SENSITIVE_SETTING_KEYS = new Set(['2fa_secret'])
+
 export const getAppSetting = (key: string): string | null => {
   const db = getStorage()
   const row = db.prepare('SELECT value FROM app_settings WHERE key = ?').get(key) as any
-  return row ? row.value : null
+  if (!row) return null
+  return SENSITIVE_SETTING_KEYS.has(key) ? decryptString(row.value) : row.value
 }
 
 export const setAppSetting = (key: string, value: string) => {
   const db = getStorage()
-  db.prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)').run(key, value)
+  const storedValue = SENSITIVE_SETTING_KEYS.has(key) ? encryptString(value) : value
+  db.prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)').run(key, storedValue)
 }
 
 export const deleteAppSetting = (key: string) => {

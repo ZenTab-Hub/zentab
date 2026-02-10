@@ -9,36 +9,58 @@ interface KafkaConnectionInfo {
 
 const connections = new Map<string, KafkaConnectionInfo>()
 
-/** Parse kafka:// connection string into broker list and SASL config */
+/**
+ * Parse kafka:// connection string into broker list, SASL config, and SSL flag.
+ *
+ * Supported formats:
+ *   kafka://broker1:9092,broker2:9092
+ *   kafka+ssl://broker1:9092
+ *   kafka+sasl_plain://user:pass@broker1:9092
+ *   kafka+sasl_scram256://user:pass@broker1:9092
+ *   kafka+sasl_scram512://user:pass@broker1:9092
+ *   kafka+sasl_plain+ssl://user:pass@broker1:9092
+ *   kafka+sasl_scram256+ssl://user:pass@broker1:9092
+ */
 function parseKafkaConnectionString(connectionString: string): { brokers: string[]; sasl?: any; ssl?: boolean } {
   let str = connectionString.trim()
-  // Remove kafka:// prefix
-  if (str.startsWith('kafka://')) str = str.slice(8)
-  if (str.startsWith('kafka+ssl://')) {
-    str = str.slice(12)
-    const result = parseBrokersAndAuth(str)
-    return { ...result, ssl: true }
-  }
-  return parseBrokersAndAuth(str)
-}
 
-function parseBrokersAndAuth(str: string): { brokers: string[]; sasl?: any } {
-  // Check for auth: user:pass@brokers
+  let ssl = false
+  let saslMechanism: string | null = null
+
+  // Parse protocol prefix: kafka+sasl_xxx+ssl:// or kafka+ssl:// or kafka://
+  const protoMatch = str.match(/^kafka(\+[^:]+)?:\/\//)
+  if (protoMatch) {
+    const flags = protoMatch[1] || '' // e.g. "+sasl_plain+ssl"
+    str = str.slice(protoMatch[0].length)
+    if (flags.includes('+ssl')) ssl = true
+    if (flags.includes('+sasl_scram512')) saslMechanism = 'scram-sha-512'
+    else if (flags.includes('+sasl_scram256')) saslMechanism = 'scram-sha-256'
+    else if (flags.includes('+sasl_plain')) saslMechanism = 'plain'
+  }
+
+  // Parse auth: user:pass@brokers
   const atIndex = str.lastIndexOf('@')
+  let sasl: any = undefined
+  let brokerPart = str
+
   if (atIndex > 0) {
     const authPart = str.slice(0, atIndex)
-    const brokerPart = str.slice(atIndex + 1)
+    brokerPart = str.slice(atIndex + 1)
     const colonIndex = authPart.indexOf(':')
     if (colonIndex > 0) {
       const username = decodeURIComponent(authPart.slice(0, colonIndex))
       const password = decodeURIComponent(authPart.slice(colonIndex + 1))
-      return {
-        brokers: brokerPart.split(',').map(b => b.trim()).filter(Boolean),
-        sasl: { mechanism: 'plain', username, password },
-      }
+      const mechanism = saslMechanism || 'plain'
+      sasl = { mechanism, username, password }
     }
   }
-  return { brokers: str.split(',').map(b => b.trim()).filter(Boolean) }
+
+  const brokers = brokerPart.split(',').map(b => b.trim()).filter(Boolean)
+
+  // If SASL is used, default SSL to true (common for cloud Kafka)
+  if (sasl && !ssl) ssl = true
+
+  return { brokers, sasl, ssl }
 }
 
 export const connectToKafka = async (connectionId: string, connectionString: string) => {
@@ -54,7 +76,7 @@ export const connectToKafka = async (connectionId: string, connectionString: str
       clientId: `zentab-${connectionId}`,
       brokers,
       sasl: sasl || undefined,
-      ssl: ssl || !!sasl,
+      ssl: ssl || false,
       connectionTimeout: 10000,
       logLevel: logLevel.WARN,
     })
@@ -236,6 +258,120 @@ export const kafkaGetClusterInfo = async (connectionId: string) => {
 }
 
 
+
+/* ── Consumer Groups ── */
+
+export const kafkaListConsumerGroups = async (connectionId: string) => {
+  const conn = connections.get(connectionId)
+  if (!conn) throw new Error('Not connected to Kafka')
+  const { groups } = await conn.admin.listGroups()
+  return { success: true, groups }
+}
+
+export const kafkaDescribeConsumerGroup = async (connectionId: string, groupId: string) => {
+  const conn = connections.get(connectionId)
+  if (!conn) throw new Error('Not connected to Kafka')
+  const result = await conn.admin.describeGroups([groupId])
+  const group = result.groups[0]
+  return { success: true, group }
+}
+
+export const kafkaGetConsumerGroupOffsets = async (connectionId: string, groupId: string, topic?: string) => {
+  const conn = connections.get(connectionId)
+  if (!conn) throw new Error('Not connected to Kafka')
+  const offsets = await conn.admin.fetchOffsets({ groupId, topics: topic ? [topic] : undefined })
+  // Also get topic end offsets for lag calculation
+  const topicNames = offsets.map((o: any) => o.topic)
+  const lagInfo = []
+  for (const t of topicNames) {
+    try {
+      const topicOffsets = await conn.admin.fetchTopicOffsets(t)
+      lagInfo.push({ topic: t, endOffsets: topicOffsets })
+    } catch { /* skip */ }
+  }
+  return { success: true, offsets, lagInfo }
+}
+
+export const kafkaResetConsumerGroupOffsets = async (
+  connectionId: string, groupId: string, topic: string, earliest: boolean = true
+) => {
+  const conn = connections.get(connectionId)
+  if (!conn) throw new Error('Not connected to Kafka')
+  await conn.admin.resetOffsets({ groupId, topic, earliest })
+  return { success: true }
+}
+
+export const kafkaDeleteConsumerGroup = async (connectionId: string, groupId: string) => {
+  const conn = connections.get(connectionId)
+  if (!conn) throw new Error('Not connected to Kafka')
+  await conn.admin.deleteGroups([groupId])
+  return { success: true }
+}
+
+/* ── Topic Configuration ── */
+
+export const kafkaGetTopicConfig = async (connectionId: string, topic: string) => {
+  const conn = connections.get(connectionId)
+  if (!conn) throw new Error('Not connected to Kafka')
+  const { resources } = await conn.admin.describeConfigs({
+    includeSynonyms: false,
+    resources: [{ type: 2 /* TOPIC */, name: topic }],
+  })
+  return { success: true, configs: resources[0]?.configEntries || [] }
+}
+
+export const kafkaAlterTopicConfig = async (
+  connectionId: string, topic: string, configEntries: Array<{ name: string; value: string }>
+) => {
+  const conn = connections.get(connectionId)
+  if (!conn) throw new Error('Not connected to Kafka')
+  await conn.admin.alterConfigs({
+    validateOnly: false,
+    resources: [{
+      type: 2 /* TOPIC */,
+      name: topic,
+      configEntries,
+    }],
+  })
+  return { success: true }
+}
+
+/* ── Kafka Stats (for Monitoring) ── */
+
+export const kafkaGetStats = async (connectionId: string) => {
+  const conn = connections.get(connectionId)
+  if (!conn) throw new Error('Not connected to Kafka')
+
+  const [cluster, topics, { groups }] = await Promise.all([
+    conn.admin.describeCluster(),
+    conn.admin.listTopics(),
+    conn.admin.listGroups(),
+  ])
+
+  const metadata = await conn.admin.fetchTopicMetadata({ topics })
+  const totalPartitions = metadata.topics.reduce((sum, t) => sum + (t.partitions?.length || 0), 0)
+
+  return {
+    success: true,
+    stats: {
+      cluster: {
+        clusterId: cluster.clusterId,
+        controller: cluster.controller,
+        brokers: cluster.brokers,
+        brokerCount: cluster.brokers.length,
+      },
+      topics: {
+        count: topics.length,
+        totalPartitions,
+        names: topics,
+      },
+      consumerGroups: {
+        count: groups.length,
+        groups: groups.map((g: any) => ({ groupId: g.groupId, protocolType: g.protocolType })),
+      },
+    },
+  }
+}
 
 /** Disconnect all Kafka connections (used on app quit) */
 export const disconnectAll = async () => {

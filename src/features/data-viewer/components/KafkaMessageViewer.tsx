@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Radio, RefreshCw, Send, Copy, FileJson, Table, ChevronDown, ChevronRight } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Radio, RefreshCw, Send, Copy, FileJson, Table, ChevronDown, ChevronRight, Search, X, Info, Server } from 'lucide-react'
 import { Input } from '@/components/common/Input'
 import { useConnectionStore } from '@/store/connectionStore'
 import { databaseService } from '@/services/database.service'
@@ -19,6 +19,14 @@ export const KafkaMessageViewer = () => {
   const [produceKey, setProduceKey] = useState('')
   const [produceValue, setProduceValue] = useState('')
   const [producing, setProducing] = useState(false)
+  // Filter state
+  const [filterKey, setFilterKey] = useState('')
+  const [filterValue, setFilterValue] = useState('')
+  const [showFilter, setShowFilter] = useState(false)
+  // Partition details state
+  const [showPartitions, setShowPartitions] = useState(false)
+  const [partitionDetails, setPartitionDetails] = useState<any>(null)
+  const [partitionLoading, setPartitionLoading] = useState(false)
 
   useEffect(() => {
     if (activeConnectionId && selectedCollection) {
@@ -83,6 +91,40 @@ export const KafkaMessageViewer = () => {
   const tryParseJSON = (str: string | null) => {
     if (!str) return str
     try { return JSON.stringify(JSON.parse(str), null, 2) } catch { return str }
+  }
+
+  // Filtered messages
+  const filteredMessages = useMemo(() => {
+    if (!filterKey && !filterValue) return messages
+    return messages.filter((msg) => {
+      const keyMatch = !filterKey || (msg.key || '').toLowerCase().includes(filterKey.toLowerCase())
+      const valMatch = !filterValue || (msg.value || '').toLowerCase().includes(filterValue.toLowerCase())
+      return keyMatch && valMatch
+    })
+  }, [messages, filterKey, filterValue])
+
+  // Fetch partition details
+  const fetchPartitionDetails = async () => {
+    if (!activeConnectionId || !selectedCollection) return
+    try {
+      setPartitionLoading(true)
+      const result = await databaseService.getCollectionStats(activeConnectionId, selectedCollection, 'kafka')
+      if (result.success) {
+        // Merge metadata.partitions with offsets
+        const meta = result.metadata || {}
+        const offsets = result.offsets || []
+        const offsetMap = new Map(offsets.map((o: any) => [o.partition, o]))
+        const partitions = (meta.partitions || []).map((p: any) => {
+          const oData = offsetMap.get(p.partitionId) as Record<string, any> | undefined
+          return { ...p, ...(oData || {}) }
+        })
+        setPartitionDetails({ partitions, name: meta.name })
+      }
+    } catch (err: any) {
+      tt.error('Failed to load partition details: ' + err.message)
+    } finally {
+      setPartitionLoading(false)
+    }
   }
 
   // Empty state
@@ -156,7 +198,16 @@ export const KafkaMessageViewer = () => {
           From beginning
         </label>
         <div className="flex-1" />
-        <span className="text-[11px] text-muted-foreground">{messages.length} messages</span>
+        <span className="text-[11px] text-muted-foreground">
+          {filterKey || filterValue ? `${filteredMessages.length} / ` : ''}{messages.length} messages
+        </span>
+        <span className="text-muted-foreground/30">|</span>
+        <button onClick={() => setShowFilter(!showFilter)} className={`p-1.5 rounded transition-colors ${showFilter ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-accent'}`} title="Filter Messages">
+          <Search className="h-3.5 w-3.5" />
+        </button>
+        <button onClick={() => { setShowPartitions(!showPartitions); if (!showPartitions && !partitionDetails) fetchPartitionDetails() }} className={`p-1.5 rounded transition-colors ${showPartitions ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-accent'}`} title="Partition Details">
+          <Info className="h-3.5 w-3.5" />
+        </button>
         <span className="text-muted-foreground/30">|</span>
         <button onClick={() => setViewMode('table')} className={`p-1.5 rounded transition-colors ${viewMode === 'table' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-accent'}`} title="Table View">
           <Table className="h-3.5 w-3.5" />
@@ -166,22 +217,78 @@ export const KafkaMessageViewer = () => {
         </button>
       </div>
 
+      {/* Filter Panel */}
+      {showFilter && (
+        <div className="flex gap-2 items-center rounded-md border bg-card/50 px-3 py-2">
+          <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <Input value={filterKey} onChange={(e) => setFilterKey(e.target.value)} placeholder="Filter by key..." className="text-[11px] h-7 flex-1" />
+          <Input value={filterValue} onChange={(e) => setFilterValue(e.target.value)} placeholder="Filter by value..." className="text-[11px] h-7 flex-1" />
+          {(filterKey || filterValue) && (
+            <button onClick={() => { setFilterKey(''); setFilterValue('') }} className="p-1 rounded hover:bg-accent text-muted-foreground" title="Clear filters">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Partition Details Panel */}
+      {showPartitions && (
+        <div className="rounded-md border bg-card p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold flex items-center gap-1.5"><Server className="h-3.5 w-3.5 text-amber-400" /> Partition Details</span>
+            <button onClick={fetchPartitionDetails} disabled={partitionLoading} className="text-[10px] text-muted-foreground hover:text-primary">
+              <RefreshCw className={`h-3 w-3 ${partitionLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+          {partitionLoading ? (
+            <p className="text-[10px] text-muted-foreground">Loading...</p>
+          ) : partitionDetails?.partitions ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px]">
+                <thead className="bg-muted/50 border-b">
+                  <tr>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-medium text-muted-foreground uppercase">Partition</th>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-medium text-muted-foreground uppercase">Leader</th>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-medium text-muted-foreground uppercase">Replicas</th>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-medium text-muted-foreground uppercase">ISR</th>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-medium text-muted-foreground uppercase">Offset (High)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {partitionDetails.partitions.map((p: any) => (
+                    <tr key={p.partitionId} className="hover:bg-muted/30">
+                      <td className="px-2 py-1.5 font-mono text-amber-400">{p.partitionId}</td>
+                      <td className="px-2 py-1.5 font-mono">{p.leader}</td>
+                      <td className="px-2 py-1.5 font-mono text-muted-foreground">{(p.replicas || []).join(', ')}</td>
+                      <td className="px-2 py-1.5 font-mono text-green-400">{(p.isr || []).join(', ')}</td>
+                      <td className="px-2 py-1.5 font-mono text-muted-foreground">{p.high ?? p.offset ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-[10px] text-muted-foreground">No partition data available</p>
+          )}
+        </div>
+      )}
+
       {/* Content */}
       <div className="flex-1 overflow-auto rounded-md border bg-card">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <p className="text-xs text-muted-foreground">Consuming messages...</p>
           </div>
-        ) : messages.length === 0 ? (
+        ) : filteredMessages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <Radio className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
-              <p className="text-xs text-muted-foreground">No messages in this topic</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Click "Consume" to fetch messages or "Produce" to send one</p>
+              <p className="text-xs text-muted-foreground">{messages.length === 0 ? 'No messages in this topic' : 'No messages match the filter'}</p>
+              {messages.length === 0 && <p className="text-[10px] text-muted-foreground mt-1">Click "Consume" to fetch messages or "Produce" to send one</p>}
             </div>
           </div>
         ) : viewMode === 'json' ? (
-          <pre className="overflow-auto p-3 text-[11px] font-mono">{JSON.stringify(messages, null, 2)}</pre>
+          <pre className="overflow-auto p-3 text-[11px] font-mono">{JSON.stringify(filteredMessages, null, 2)}</pre>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -196,7 +303,7 @@ export const KafkaMessageViewer = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
-                {messages.map((msg, i) => {
+                {filteredMessages.map((msg, i) => {
                   const rowKey = `${msg.partition}-${msg.offset}`
                   const isExpanded = expandedRows.has(rowKey)
                   return (

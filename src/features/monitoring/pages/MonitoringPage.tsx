@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Activity, RefreshCw, Wifi, WifiOff, HardDrive, Cpu, Database, ArrowUpDown, Clock, Server, Gauge } from 'lucide-react'
+import { Activity, RefreshCw, Wifi, WifiOff, HardDrive, Cpu, Database, ArrowUpDown, Clock, Server, Gauge, Radio, Users, Layers } from 'lucide-react'
 import { useConnectionStore } from '@/store/connectionStore'
 import { databaseService } from '@/services/database.service'
 import { DatabaseIcon } from '@/components/common/DatabaseIcon'
@@ -38,7 +38,7 @@ export const MonitoringPage = () => {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const isSupported = dbType === 'mongodb' || dbType === 'postgresql' || dbType === 'redis'
+  const isSupported = dbType === 'mongodb' || dbType === 'postgresql' || dbType === 'redis' || dbType === 'kafka'
 
   const fetchStats = useCallback(async () => {
     if (!activeConnectionId || !isSupported) return
@@ -127,6 +127,7 @@ export const MonitoringPage = () => {
         {stats && dbType === 'mongodb' && <MongoStats stats={stats} />}
         {stats && dbType === 'postgresql' && <PgStats stats={stats} />}
         {stats && dbType === 'redis' && <RedisStats stats={stats} />}
+        {stats && dbType === 'kafka' && <KafkaStats stats={stats} />}
         {!stats && !error && <div className="text-center text-sm text-muted-foreground py-10">Loading server stats...</div>}
       </div>
     </div>
@@ -396,6 +397,27 @@ const RedisStats = ({ stats }: { stats: any }) => {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+
+const KafkaStats = ({ stats }: { stats: any }) => {
+  const s = stats.stats || stats
+  return (
+    <div className="space-y-4">
+      {/* Cluster Overview */}
+      <div>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Cluster Overview</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+          <StatCard icon={Server} label="Brokers" value={s.brokers ?? '—'} color="text-amber-400" />
+          <StatCard icon={Radio} label="Controller" value={s.controller ?? '—'} color="text-green-400" />
+          <StatCard icon={Database} label="Topics" value={s.topicCount ?? '—'} color="text-blue-400" />
+          <StatCard icon={Layers} label="Partitions" value={s.totalPartitions ?? '—'} color="text-purple-400" />
+          <StatCard icon={Users} label="Consumer Groups" value={s.consumerGroupCount ?? '—'} color="text-cyan-400" />
+          <StatCard icon={HardDrive} label="Cluster ID" value={s.clusterId ? String(s.clusterId).slice(0, 12) + '…' : '—'} sub={s.clusterId || undefined} color="text-muted-foreground" />
+        </div>
+      </div>
     </div>
   )
 }

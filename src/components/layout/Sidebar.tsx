@@ -22,6 +22,9 @@ import {
   Trash2,
   Edit3,
   List,
+  Eye,
+  Settings2,
+  Users,
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { useConnectionStore } from '@/store/connectionStore'
@@ -45,6 +48,7 @@ const navigation = [
   { name: 'Import/Export', href: '/import-export', icon: Upload },
   { name: 'Monitoring', href: '/monitoring', icon: Activity },
   { name: 'Redis Tools', href: '/redis-tools', icon: Terminal, dbType: 'redis' as const },
+  { name: 'Kafka Tools', href: '/kafka-tools', icon: Radio, dbType: 'kafka' as const },
 ]
 
 export const Sidebar = () => {
@@ -433,7 +437,7 @@ export const Sidebar = () => {
                 onClick={() => setShowCreateColl(ctxMenu.db)}>
                 <Plus className="h-3 w-3" /> Create {itemLabel}
               </button>
-              {!isRedis && (
+              {!isRedis && !isKafka && (
                 <button className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-accent text-destructive"
                   onClick={() => setShowDropDb(ctxMenu.db)}>
                   <Trash2 className="h-3 w-3" /> Drop Database
@@ -453,6 +457,23 @@ export const Sidebar = () => {
           )}
           {ctxMenu.type === 'coll' && ctxMenu.coll && (
             <>
+              {isKafka && (
+                <>
+                  <button className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-accent"
+                    onClick={() => { handleSelectCollection(ctxMenu.db, ctxMenu.coll!); navigate('/data-viewer') }}>
+                    <Eye className="h-3 w-3" /> View Messages
+                  </button>
+                  <button className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-accent"
+                    onClick={() => { handleSelectCollection(ctxMenu.db, ctxMenu.coll!); navigate('/kafka-tools?tab=config&topic=' + encodeURIComponent(ctxMenu.coll!)) }}>
+                    <Settings2 className="h-3 w-3" /> Topic Config
+                  </button>
+                  <button className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-accent"
+                    onClick={() => { handleSelectCollection(ctxMenu.db, ctxMenu.coll!); navigate('/kafka-tools?tab=groups') }}>
+                    <Users className="h-3 w-3" /> Consumer Groups
+                  </button>
+                  <div className="my-0.5 border-t border-border/50" />
+                </>
+              )}
               {!isKafka && (
                 <button className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-accent"
                   onClick={() => setShowRenameColl({ db: ctxMenu.db, coll: ctxMenu.coll! })}>

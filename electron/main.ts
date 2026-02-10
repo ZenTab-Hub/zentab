@@ -1,13 +1,13 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import fs from 'fs'
 import path from 'path'
-import { initStorage, migratePasswords, saveConnection, getConnections, deleteConnection, saveQuery, getSavedQueries, deleteSavedQuery, addQueryHistory, getQueryHistory, getAppSetting, setAppSetting, deleteAppSetting, getQueryTemplates, saveQueryTemplate, deleteQueryTemplate, seedBuiltInTemplates } from './storage'
+import { initStorage, migrateSecrets, saveConnection, getConnections, deleteConnection, saveQuery, getSavedQueries, deleteSavedQuery, addQueryHistory, getQueryHistory, getAppSetting, setAppSetting, deleteAppSetting, getQueryTemplates, saveQueryTemplate, deleteQueryTemplate, seedBuiltInTemplates } from './storage'
 import * as OTPAuth from 'otpauth'
 import QRCode from 'qrcode'
 import { connectToMongoDB, disconnectFromMongoDB, pingMongoDB, listDatabases, listCollections, executeQuery, insertDocument, updateDocument, deleteDocument, updateMany, deleteMany, countDocuments, aggregate, getCollectionStats, mongoCreateDatabase, mongoDropDatabase, mongoCreateCollection, mongoDropCollection, mongoRenameCollection, mongoListIndexes, mongoCreateIndex, mongoDropIndex, explainQuery, getServerStatus, disconnectAll as disconnectAllMongo } from './mongodb'
 import { connectToPostgreSQL, disconnectFromPostgreSQL, pingPostgreSQL, pgListDatabases, pgListTables, pgExecuteQuery, pgFindQuery, pgInsertDocument, pgUpdateDocument, pgDeleteDocument, pgUpdateMany, pgDeleteMany, pgCountRows, pgAggregate, pgGetTableSchema, pgCreateDatabase, pgDropDatabase, pgCreateTable, pgDropTable, pgRenameTable, pgListIndexes, pgCreateIndex, pgDropIndex, pgExplainQuery, pgGetServerStats, disconnectAll as disconnectAllPg } from './postgresql'
 import { connectToRedis, disconnectFromRedis, pingRedis, redisListDatabases, redisListKeys, redisGetKeyValue, redisSetKey, redisDeleteKey, redisExecuteCommand, redisGetInfo, redisFlushDatabase, redisRenameKey, redisGetServerStats, redisGetSlowLog, redisGetClients, redisMemoryUsage, redisBulkDelete, redisBulkTTL, redisAddItem, redisRemoveItem, redisSubscribe, redisUnsubscribe, redisUnsubscribeAll, redisPublish, redisGetPubSubChannels, setPubSubMessageCallback, redisStreamAdd, redisStreamRange, redisStreamLen, redisStreamDel, redisStreamTrim, redisStreamInfo, redisGetKeyEncoding, redisSetKeyTTL, redisCopyKey, disconnectAll as disconnectAllRedis } from './redis'
-import { connectToKafka, disconnectFromKafka, pingKafka, kafkaListTopics, kafkaGetTopicMetadata, kafkaConsumeMessages, kafkaProduceMessage, kafkaCreateTopic, kafkaDeleteTopic, kafkaGetClusterInfo, disconnectAll as disconnectAllKafka } from './kafka'
+import { connectToKafka, disconnectFromKafka, pingKafka, kafkaListTopics, kafkaGetTopicMetadata, kafkaConsumeMessages, kafkaProduceMessage, kafkaCreateTopic, kafkaDeleteTopic, kafkaGetClusterInfo, kafkaListConsumerGroups, kafkaDescribeConsumerGroup, kafkaGetConsumerGroupOffsets, kafkaResetConsumerGroupOffsets, kafkaDeleteConsumerGroup, kafkaGetTopicConfig, kafkaAlterTopicConfig, kafkaGetStats, disconnectAll as disconnectAllKafka } from './kafka'
 import { createSSHTunnel, closeSSHTunnel, closeAllSSHTunnels, type SSHTunnelConfig } from './ssh-tunnel'
 import { initUpdater, setupUpdaterIPC, checkForUpdatesQuietly } from './updater'
 
@@ -95,9 +95,9 @@ app.whenReady().then(() => {
     }
   }
 
-  // Initialize storage & migrate plaintext passwords
+  // Initialize storage & migrate plaintext secrets to safeStorage
   initStorage()
-  migratePasswords()
+  migrateSecrets()
   seedBuiltInTemplates()
 
   createWindow()
@@ -599,6 +599,38 @@ ipcMain.handle('kafka:deleteTopic', async (_event, connectionId, topic) => {
 
 ipcMain.handle('kafka:getClusterInfo', async (_event, connectionId) => {
   return await kafkaGetClusterInfo(connectionId)
+})
+
+ipcMain.handle('kafka:listConsumerGroups', async (_event, connectionId) => {
+  return await kafkaListConsumerGroups(connectionId)
+})
+
+ipcMain.handle('kafka:describeConsumerGroup', async (_event, connectionId, groupId) => {
+  return await kafkaDescribeConsumerGroup(connectionId, groupId)
+})
+
+ipcMain.handle('kafka:getConsumerGroupOffsets', async (_event, connectionId, groupId, topic) => {
+  return await kafkaGetConsumerGroupOffsets(connectionId, groupId, topic)
+})
+
+ipcMain.handle('kafka:resetConsumerGroupOffsets', async (_event, connectionId, groupId, topic, earliest) => {
+  return await kafkaResetConsumerGroupOffsets(connectionId, groupId, topic, earliest)
+})
+
+ipcMain.handle('kafka:deleteConsumerGroup', async (_event, connectionId, groupId) => {
+  return await kafkaDeleteConsumerGroup(connectionId, groupId)
+})
+
+ipcMain.handle('kafka:getTopicConfig', async (_event, connectionId, topic) => {
+  return await kafkaGetTopicConfig(connectionId, topic)
+})
+
+ipcMain.handle('kafka:alterTopicConfig', async (_event, connectionId, topic, configEntries) => {
+  return await kafkaAlterTopicConfig(connectionId, topic, configEntries)
+})
+
+ipcMain.handle('kafka:getStats', async (_event, connectionId) => {
+  return await kafkaGetStats(connectionId)
 })
 
 // Ping / Health Check IPC Handlers

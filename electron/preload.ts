@@ -236,6 +236,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('kafka:deleteTopic', connectionId, topic),
     getClusterInfo: (connectionId: string) =>
       ipcRenderer.invoke('kafka:getClusterInfo', connectionId),
+    listConsumerGroups: (connectionId: string) =>
+      ipcRenderer.invoke('kafka:listConsumerGroups', connectionId),
+    describeConsumerGroup: (connectionId: string, groupId: string) =>
+      ipcRenderer.invoke('kafka:describeConsumerGroup', connectionId, groupId),
+    getConsumerGroupOffsets: (connectionId: string, groupId: string, topic?: string) =>
+      ipcRenderer.invoke('kafka:getConsumerGroupOffsets', connectionId, groupId, topic),
+    resetConsumerGroupOffsets: (connectionId: string, groupId: string, topic: string, earliest: boolean) =>
+      ipcRenderer.invoke('kafka:resetConsumerGroupOffsets', connectionId, groupId, topic, earliest),
+    deleteConsumerGroup: (connectionId: string, groupId: string) =>
+      ipcRenderer.invoke('kafka:deleteConsumerGroup', connectionId, groupId),
+    getTopicConfig: (connectionId: string, topic: string) =>
+      ipcRenderer.invoke('kafka:getTopicConfig', connectionId, topic),
+    alterTopicConfig: (connectionId: string, topic: string, configEntries: Array<{ name: string; value: string }>) =>
+      ipcRenderer.invoke('kafka:alterTopicConfig', connectionId, topic, configEntries),
+    getStats: (connectionId: string) =>
+      ipcRenderer.invoke('kafka:getStats', connectionId),
   },
 
   // File dialog operations
@@ -345,6 +361,14 @@ export interface ElectronAPI {
     createTopic: (connectionId: string, topic: string, numPartitions: number, replicationFactor: number) => Promise<any>
     deleteTopic: (connectionId: string, topic: string) => Promise<any>
     getClusterInfo: (connectionId: string) => Promise<any>
+    listConsumerGroups: (connectionId: string) => Promise<any>
+    describeConsumerGroup: (connectionId: string, groupId: string) => Promise<any>
+    getConsumerGroupOffsets: (connectionId: string, groupId: string, topic?: string) => Promise<any>
+    resetConsumerGroupOffsets: (connectionId: string, groupId: string, topic: string, earliest: boolean) => Promise<any>
+    deleteConsumerGroup: (connectionId: string, groupId: string) => Promise<any>
+    getTopicConfig: (connectionId: string, topic: string) => Promise<any>
+    alterTopicConfig: (connectionId: string, topic: string, configEntries: Array<{ name: string; value: string }>) => Promise<any>
+    getStats: (connectionId: string) => Promise<any>
   }
   dialog: {
     showOpenDialog: (options: any) => Promise<{ canceled: boolean; filePaths: string[] }>

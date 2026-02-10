@@ -46,6 +46,41 @@ class KafkaService {
   async getClusterInfo(connectionId: string): Promise<any> {
     return this.callElectronAPI('getClusterInfo', connectionId)
   }
+
+  /* ── Consumer Groups ── */
+  async listConsumerGroups(connectionId: string): Promise<any> {
+    return this.callElectronAPI('listConsumerGroups', connectionId)
+  }
+
+  async describeConsumerGroup(connectionId: string, groupId: string): Promise<any> {
+    return this.callElectronAPI('describeConsumerGroup', connectionId, groupId)
+  }
+
+  async getConsumerGroupOffsets(connectionId: string, groupId: string, topic?: string): Promise<any> {
+    return this.callElectronAPI('getConsumerGroupOffsets', connectionId, groupId, topic)
+  }
+
+  async resetConsumerGroupOffsets(connectionId: string, groupId: string, topic: string, earliest: boolean = true): Promise<any> {
+    return this.callElectronAPI('resetConsumerGroupOffsets', connectionId, groupId, topic, earliest)
+  }
+
+  async deleteConsumerGroup(connectionId: string, groupId: string): Promise<any> {
+    return this.callElectronAPI('deleteConsumerGroup', connectionId, groupId)
+  }
+
+  /* ── Topic Configuration ── */
+  async getTopicConfig(connectionId: string, topic: string): Promise<any> {
+    return this.callElectronAPI('getTopicConfig', connectionId, topic)
+  }
+
+  async alterTopicConfig(connectionId: string, topic: string, configEntries: Array<{ name: string; value: string }>): Promise<any> {
+    return this.callElectronAPI('alterTopicConfig', connectionId, topic, configEntries)
+  }
+
+  /* ── Stats ── */
+  async getStats(connectionId: string): Promise<any> {
+    return this.callElectronAPI('getStats', connectionId)
+  }
 }
 
 export const kafkaService = new KafkaService()

@@ -245,6 +245,38 @@ class DatabaseService {
     return kafkaService.getClusterInfo(connectionId)
   }
 
+  async kafkaListConsumerGroups(connectionId: string): Promise<any> {
+    return kafkaService.listConsumerGroups(connectionId)
+  }
+
+  async kafkaDescribeConsumerGroup(connectionId: string, groupId: string): Promise<any> {
+    return kafkaService.describeConsumerGroup(connectionId, groupId)
+  }
+
+  async kafkaGetConsumerGroupOffsets(connectionId: string, groupId: string, topic?: string): Promise<any> {
+    return kafkaService.getConsumerGroupOffsets(connectionId, groupId, topic)
+  }
+
+  async kafkaResetConsumerGroupOffsets(connectionId: string, groupId: string, topic: string, earliest: boolean): Promise<any> {
+    return kafkaService.resetConsumerGroupOffsets(connectionId, groupId, topic, earliest)
+  }
+
+  async kafkaDeleteConsumerGroup(connectionId: string, groupId: string): Promise<any> {
+    return kafkaService.deleteConsumerGroup(connectionId, groupId)
+  }
+
+  async kafkaGetTopicConfig(connectionId: string, topic: string): Promise<any> {
+    return kafkaService.getTopicConfig(connectionId, topic)
+  }
+
+  async kafkaAlterTopicConfig(connectionId: string, topic: string, configEntries: Array<{ name: string; value: string }>): Promise<any> {
+    return kafkaService.alterTopicConfig(connectionId, topic, configEntries)
+  }
+
+  async kafkaGetStats(connectionId: string): Promise<any> {
+    return kafkaService.getStats(connectionId)
+  }
+
   /* ── Database Management ── */
   async createDatabase(connectionId: string, database: string, type?: DatabaseType): Promise<any> {
     const dbType = type || this.getActiveType()
@@ -321,6 +353,7 @@ class DatabaseService {
     if (dbType === 'postgresql') return postgresqlService.getServerStats(connectionId)
     if (dbType === 'mongodb') return mongodbService.getServerStatus(connectionId)
     if (dbType === 'redis') return redisService.getServerStats(connectionId)
+    if (dbType === 'kafka') return kafkaService.getStats(connectionId)
     return { success: false, error: 'Server monitoring not supported for this database type' }
   }
 

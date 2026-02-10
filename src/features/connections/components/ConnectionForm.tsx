@@ -105,16 +105,32 @@ export const ConnectionForm = ({ onSubmit, onCancel, initialData }: ConnectionFo
   }))
   const [sshAuthMode, setSSHAuthMode] = useState<'password' | 'privateKey'>(initialData?.sshTunnel?.privateKey ? 'privateKey' : 'password')
 
+  // Kafka-specific state
+  const [kafkaSASL, setKafkaSASL] = useState<'none' | 'plain' | 'scram-sha-256' | 'scram-sha-512'>(() => {
+    const cs = initialData?.connectionString || ''
+    if (cs.includes('+sasl_scram512')) return 'scram-sha-512'
+    if (cs.includes('+sasl_scram256')) return 'scram-sha-256'
+    if (cs.includes('+sasl_plain')) return 'plain'
+    if (initialData?.username && initialData?.type === 'kafka') return 'plain'
+    return 'none'
+  })
+  const [kafkaSSL, setKafkaSSL] = useState(() => {
+    const cs = initialData?.connectionString || ''
+    if (cs.includes('+ssl')) return true
+    return initialData?.ssl === true
+  })
+
   const setSSHField = useCallback((key: keyof SSHFields, value: string | boolean) => {
     setSSH(prev => prev[key] === value ? prev : { ...prev, [key]: value })
   }, [])
 
   const cfg = useMemo(() => DB_CONFIGS[dbType], [dbType])
+  const isKafka = dbType === 'kafka'
   const hasHostPort = dbType !== 'sqlite'
-  const hasCreds = dbType !== 'sqlite'
+  const hasCreds = dbType !== 'sqlite' && !isKafka
   const hasAuthDb = dbType === 'mongodb'
-  const hasConnStr = dbType !== 'sqlite' && dbType !== 'kafka'
-  const hasDatabase = dbType !== 'kafka'
+  const hasConnStr = dbType !== 'sqlite'
+  const hasDatabase = !isKafka
 
   /* Switch DB type — wrapped in startTransition so React keeps UI responsive */
   const handleDbTypeChange = useCallback((type: DatabaseType) => {
@@ -125,7 +141,7 @@ export const ConnectionForm = ({ onSubmit, onCancel, initialData }: ConnectionFo
         const newDefault = String(DB_CONFIGS[type].defaultPort)
         setFields(f => (f.port === '' || f.port === curDefault) ? { ...f, port: newDefault } : f)
         // If switching to a type that doesn't support connection string, reset to params
-        const noConnStr = type === 'sqlite' || type === 'kafka'
+        const noConnStr = type === 'sqlite'
         if (noConnStr) setUseConnStr(false)
         return type
       })
@@ -146,8 +162,12 @@ export const ConnectionForm = ({ onSubmit, onCancel, initialData }: ConnectionFo
     e.preventDefault()
     if (!fields.name.trim()) { setNameError('Name is required'); return }
     setNameError('')
-    onSubmit({ name: fields.name, type: dbType, host: fields.host, port: Number(fields.port) || cfg.defaultPort, username: fields.username, password: fields.password, database: fields.database, authDatabase: fields.authDatabase, ...sshData })
-  }, [fields, dbType, cfg.defaultPort, onSubmit, sshData])
+    const base = { name: fields.name, type: dbType, host: fields.host, port: Number(fields.port) || cfg.defaultPort, username: fields.username, password: fields.password, database: fields.database, authDatabase: fields.authDatabase, ...sshData }
+    if (isKafka) {
+      Object.assign(base, { kafkaSASL, kafkaSSL })
+    }
+    onSubmit(base)
+  }, [fields, dbType, cfg.defaultPort, onSubmit, sshData, isKafka, kafkaSASL, kafkaSSL])
 
   const handleConnStrSubmit = useCallback(() => {
     if (!fields.name.trim()) { setNameError('Name is required'); return }
@@ -213,18 +233,75 @@ export const ConnectionForm = ({ onSubmit, onCancel, initialData }: ConnectionFo
             </div>
           ) : (
             <form id="connection-form" onSubmit={handleParamSubmit} className="space-y-3">
-              <Collapsible open={hasHostPort}>
+              {/* Kafka: Brokers (comma-separated) + Port */}
+              {isKafka ? (
                 <div className="grid grid-cols-4 gap-3">
                   <div className="col-span-3">
-                    <label className={LABEL_CLS}>Host</label>
-                    <input className={INPUT_CLS} placeholder="localhost" value={fields.host} onChange={e => setField('host', e.target.value)} />
+                    <label className={LABEL_CLS}>Brokers</label>
+                    <input className={INPUT_CLS} placeholder="broker1,broker2,broker3" value={fields.host} onChange={e => setField('host', e.target.value)} />
+                    <p className="mt-1 text-[10px] text-muted-foreground/70">Comma-separated hostnames</p>
                   </div>
                   <div>
                     <label className={LABEL_CLS}>Port</label>
-                    <input type="number" className={INPUT_CLS} placeholder={String(cfg.defaultPort)} value={fields.port} onChange={e => setField('port', e.target.value)} />
+                    <input type="number" className={INPUT_CLS} placeholder="9092" value={fields.port} onChange={e => setField('port', e.target.value)} />
                   </div>
                 </div>
-              </Collapsible>
+              ) : (
+                <Collapsible open={hasHostPort}>
+                  <div className="grid grid-cols-4 gap-3">
+                    <div className="col-span-3">
+                      <label className={LABEL_CLS}>Host</label>
+                      <input className={INPUT_CLS} placeholder="localhost" value={fields.host} onChange={e => setField('host', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className={LABEL_CLS}>Port</label>
+                      <input type="number" className={INPUT_CLS} placeholder={String(cfg.defaultPort)} value={fields.port} onChange={e => setField('port', e.target.value)} />
+                    </div>
+                  </div>
+                </Collapsible>
+              )}
+
+              {/* Kafka: SASL & SSL config */}
+              {isKafka && (
+                <div className="space-y-3 rounded-lg border border-amber-500/20 bg-amber-500/[0.03] p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Radio className="h-3.5 w-3.5 text-amber-500" />
+                    <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">Security</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={LABEL_CLS}>SASL Mechanism</label>
+                      <select className={INPUT_CLS} value={kafkaSASL} onChange={e => setKafkaSASL(e.target.value as any)}>
+                        <option value="none">None (No Auth)</option>
+                        <option value="plain">PLAIN</option>
+                        <option value="scram-sha-256">SCRAM-SHA-256</option>
+                        <option value="scram-sha-512">SCRAM-SHA-512</option>
+                      </select>
+                    </div>
+                    <div className="flex items-end pb-1">
+                      <label className="flex items-center gap-2.5 cursor-pointer">
+                        <div className={`relative w-8 h-[18px] rounded-full transition-colors duration-200 ${kafkaSSL ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+                          onClick={() => setKafkaSSL(!kafkaSSL)}>
+                          <div className={`absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow-sm transition-transform duration-200 ${kafkaSSL ? 'translate-x-[16px]' : 'translate-x-[2px]'}`} />
+                        </div>
+                        <span className="text-xs font-medium">SSL / TLS</span>
+                      </label>
+                    </div>
+                  </div>
+                  {kafkaSASL !== 'none' && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={LABEL_CLS}>Username</label>
+                        <input className={INPUT_CLS} placeholder="kafka-user" value={fields.username} onChange={e => setField('username', e.target.value)} />
+                      </div>
+                      <div>
+                        <label className={LABEL_CLS}>Password</label>
+                        <input type="password" className={INPUT_CLS} placeholder="••••••••" value={fields.password} onChange={e => setField('password', e.target.value)} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <Collapsible open={hasCreds}>
                 <div className="grid grid-cols-2 gap-3">

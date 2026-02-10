@@ -9,6 +9,7 @@ import { SchemaAnalyzerPage } from '@/features/schema-analyzer/pages/SchemaAnaly
 import { ImportExportPage } from '@/features/import-export/pages/ImportExportPage'
 import { MonitoringPage } from '@/features/monitoring/pages/MonitoringPage'
 import { RedisToolsPage } from '@/features/redis-tools/pages/RedisToolsPage'
+import { KafkaToolsPage } from '@/features/kafka-tools/pages/KafkaToolsPage'
 import { useSettingsStore, resolveTheme, uiFontSizePx } from '@/store/settingsStore'
 import { useSecurityStore } from '@/store/securityStore'
 import { LockScreen } from '@/components/security/LockScreen'
@@ -86,6 +87,7 @@ function App() {
             <Route path="/import-export" element={<ErrorBoundary featureName="Import/Export"><ImportExportPage /></ErrorBoundary>} />
             <Route path="/monitoring" element={<ErrorBoundary featureName="Monitoring"><MonitoringPage /></ErrorBoundary>} />
             <Route path="/redis-tools" element={<ErrorBoundary featureName="Redis Tools"><RedisToolsPage /></ErrorBoundary>} />
+            <Route path="/kafka-tools" element={<ErrorBoundary featureName="Kafka Tools"><KafkaToolsPage /></ErrorBoundary>} />
           </Routes>
         </MainLayout>
       </Router>

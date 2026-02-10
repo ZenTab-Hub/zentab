@@ -54,6 +54,8 @@ export const ConnectionsPage = () => {
           password: data.sshPassword || '',
           privateKey: data.sshPrivateKey || '',
         } : undefined,
+        kafkaSASL: data.kafkaSASL,
+        kafkaSSL: data.kafkaSSL,
         createdAt: editingConnection?.createdAt || new Date() as any,
         updatedAt: new Date() as any,
       }
@@ -107,7 +109,27 @@ export const ConnectionsPage = () => {
     }
 
     if (dbType === 'kafka') {
-      return `kafka://${auth}${connection.host}:${connection.port || 9092}`
+      const port = connection.port || 9092
+      // Build brokers: host field may contain comma-separated brokers
+      const brokers = (connection.host || '').split(',').map(b => {
+        const h = b.trim()
+        return h.includes(':') ? h : `${h}:${port}`
+      }).join(',')
+
+      // Build protocol prefix
+      let proto = 'kafka'
+      const sasl = connection.kafkaSASL || 'none'
+      if (sasl === 'plain') proto += '+sasl_plain'
+      else if (sasl === 'scram-sha-256') proto += '+sasl_scram256'
+      else if (sasl === 'scram-sha-512') proto += '+sasl_scram512'
+      if (connection.kafkaSSL) proto += '+ssl'
+
+      // Auth part (only when SASL is not none)
+      const kafkaAuth = sasl !== 'none' && connection.username && connection.password
+        ? `${encodeURIComponent(connection.username)}:${encodeURIComponent(connection.password)}@`
+        : ''
+
+      return `${proto}://${kafkaAuth}${brokers}`
     }
 
     // MongoDB

@@ -14,6 +14,8 @@ export interface DatabaseConnection {
   database?: string
   ssl?: boolean
   sshTunnel?: SSHTunnelConfig
+  kafkaSASL?: 'none' | 'plain' | 'scram-sha-256' | 'scram-sha-512'
+  kafkaSSL?: boolean
   createdAt: Date
   updatedAt: Date
   isFavorite?: boolean
