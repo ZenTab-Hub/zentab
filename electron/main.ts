@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, nativeImage } from 'electron'
 import fs from 'fs'
 import path from 'path'
 import { initStorage, migratePasswords, saveConnection, getConnections, deleteConnection, saveQuery, getSavedQueries, deleteSavedQuery, addQueryHistory, getQueryHistory, getAppSetting, setAppSetting, deleteAppSetting, getQueryTemplates, saveQueryTemplate, deleteQueryTemplate, seedBuiltInTemplates, saveAIModel, getAIModels, deleteAIModel, getAISetting, setAISetting } from './storage'
@@ -85,7 +85,6 @@ app.whenReady().then(() => {
   if (process.platform === 'darwin' && app.dock) {
     const iconPath = path.join(__dirname, '../build/icon.png')
     try {
-      const { nativeImage } = require('electron')
       const icon = nativeImage.createFromPath(iconPath)
       if (!icon.isEmpty()) {
         app.dock.setIcon(icon)
