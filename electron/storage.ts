@@ -79,6 +79,22 @@ export const initStorage = () => {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS ai_models (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      apiKey TEXT,
+      apiUrl TEXT,
+      modelName TEXT,
+      createdAt TEXT,
+      updatedAt TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS ai_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
   `)
 
   // Migration: add type and database columns if they don't exist
@@ -397,5 +413,81 @@ export const seedBuiltInTemplates = () => {
     stmt.run(t.id, t.name, t.query, t.category, t.description || null, t.variables || null, t.isBuiltIn, now, now)
   }
   console.log(`[Storage] Seeded ${templates.length} built-in query templates`)
+}
+
+// ── AI Model Storage with Encrypted API Keys ──────────────────────
+export interface AIModel {
+  id: string
+  name: string
+  provider: 'deepseek' | 'openai' | 'gemini' | 'custom'
+  apiKey: string
+  apiUrl?: string
+  modelName?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export const saveAIModel = (model: AIModel) => {
+  const db = getStorage()
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO ai_models
+    (id, name, provider, apiKey, apiUrl, modelName, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+
+  const now = new Date().toISOString()
+  const createdAt = model.createdAt || now
+  const updatedAt = now // Always use current time for updates
+
+  // Encrypt API key before storing
+  const encApiKey = model.apiKey ? encryptString(model.apiKey) : null
+
+  stmt.run(
+    model.id,
+    model.name,
+    model.provider,
+    encApiKey,
+    model.apiUrl || null,
+    model.modelName || null,
+    createdAt,
+    updatedAt
+  )
+
+  return model
+}
+
+export const getAIModels = (): AIModel[] => {
+  const db = getStorage()
+  const stmt = db.prepare('SELECT * FROM ai_models ORDER BY COALESCE(updatedAt, createdAt, \'\') DESC')
+  const rows = stmt.all() as Array<Omit<AIModel, 'apiKey'> & { apiKey: string | null }>
+
+  // Decrypt API keys after reading
+  return rows.map((row) => ({
+    ...row,
+    apiKey: row.apiKey ? decryptString(row.apiKey) : '',
+  }))
+}
+
+export const deleteAIModel = (id: string) => {
+  const db = getStorage()
+  const stmt = db.prepare('DELETE FROM ai_models WHERE id = ?')
+  stmt.run(id)
+}
+
+// AI settings (selected model ID, auto-apply settings, etc.)
+export const getAISetting = (key: string): string | null => {
+  const db = getStorage()
+  const row = db.prepare('SELECT value FROM ai_settings WHERE key = ?').get(key) as { value: string } | undefined
+  return row ? row.value : null
+}
+
+export const setAISetting = (key: string, value: string) => {
+  const db = getStorage()
+  db.prepare('INSERT OR REPLACE INTO ai_settings (key, value) VALUES (?, ?)').run(key, value)
+}
+
+export const deleteAISetting = (key: string) => {
+  const db = getStorage()
+  db.prepare('DELETE FROM ai_settings WHERE key = ?').run(key)
 }
 

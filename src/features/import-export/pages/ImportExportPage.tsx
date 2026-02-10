@@ -14,7 +14,7 @@ function csvToObjects(csv: string): Record<string, any>[] {
     const vals = line.match(/(".*?"|[^,]+)/g) || []
     const obj: Record<string, any> = {}
     headers.forEach((h, i) => {
-      let v = (vals[i] || '').trim().replace(/^"|"$/g, '')
+      const v = (vals[i] || '').trim().replace(/^"|"$/g, '')
       const n = Number(v)
       if (v === 'true') obj[h] = true
       else if (v === 'false') obj[h] = false

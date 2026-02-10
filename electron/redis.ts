@@ -48,7 +48,12 @@ export const disconnectFromRedis = async (connectionId: string) => {
     // Clean up pub/sub subscriber
     const psInfo = pubsubConnections.get(connectionId)
     if (psInfo) {
-      try { await psInfo.subscriber.quit() } catch {}
+      try { 
+        await psInfo.subscriber.quit() 
+      } catch (error) {
+        // Ignore quit errors during cleanup
+        console.debug('Redis subscriber quit error during cleanup:', error)
+      }
       pubsubConnections.delete(connectionId)
     }
 
@@ -694,7 +699,12 @@ export const redisUnsubscribeAll = async (connectionId: string) => {
     const psInfo = pubsubConnections.get(connectionId)
     if (psInfo) {
       await psInfo.subscriber.unsubscribe()
-      try { await psInfo.subscriber.quit() } catch {}
+      try { 
+        await psInfo.subscriber.quit() 
+      } catch (error) {
+        // Ignore quit errors during cleanup
+        console.debug('Redis subscriber quit error:', error)
+      }
       pubsubConnections.delete(connectionId)
     }
     return { success: true }

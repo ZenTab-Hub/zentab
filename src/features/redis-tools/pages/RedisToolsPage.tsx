@@ -316,7 +316,9 @@ const PubSubTab = ({ connectionId, tt }: { connectionId: string; tt: any }) => {
         setServerChannels(r.channels || [])
         setSubscribedChannels(r.subscribedChannels || [])
       }
-    } catch {}
+    } catch (error) {
+      console.error('Failed to load server channels:', error)
+    }
   }
 
   useEffect(() => { loadServerChannels() }, [connectionId])

@@ -262,6 +262,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getQueryTemplates: () => ipcRenderer.invoke('storage:getQueryTemplates'),
     saveQueryTemplate: (template: any) => ipcRenderer.invoke('storage:saveQueryTemplate', template),
     deleteQueryTemplate: (id: string) => ipcRenderer.invoke('storage:deleteQueryTemplate', id),
+    // AI Model Storage (with encrypted API keys)
+    saveAIModel: (model: any) => ipcRenderer.invoke('storage:saveAIModel', model),
+    getAIModels: () => ipcRenderer.invoke('storage:getAIModels'),
+    deleteAIModel: (id: string) => ipcRenderer.invoke('storage:deleteAIModel', id),
+    getAISetting: (key: string) => ipcRenderer.invoke('storage:getAISetting', key),
+    setAISetting: (key: string, value: string) => ipcRenderer.invoke('storage:setAISetting', key, value),
   },
 
   // Auto-updater operations

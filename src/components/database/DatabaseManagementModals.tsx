@@ -31,7 +31,15 @@ export function CreateDatabaseModal({ isOpen, onClose, onSubmit }: {
   const go = async () => {
     if (!name.trim()) return
     setLoading(true)
-    try { await onSubmit(name.trim()); setName(''); onClose() } catch {} finally { setLoading(false) }
+    try { 
+      await onSubmit(name.trim()); 
+      setName(''); 
+      onClose() 
+    } catch (error) {
+      console.error('Failed to create database:', error)
+    } finally { 
+      setLoading(false) 
+    }
   }
   return (
     <ModalShell isOpen={isOpen} onClose={onClose} title="Create Database">
@@ -59,7 +67,15 @@ export function ConfirmDropModal({ isOpen, onClose, onConfirm, itemType, itemNam
   const [ct, setCt] = useState('')
   const go = async () => {
     setLoading(true)
-    try { await onConfirm(); setCt(''); onClose() } catch {} finally { setLoading(false) }
+    try { 
+      await onConfirm(); 
+      setCt(''); 
+      onClose() 
+    } catch (error) {
+      console.error('Failed to drop:', error)
+    } finally { 
+      setLoading(false) 
+    }
   }
   return (
     <ModalShell isOpen={isOpen} onClose={onClose} title={`Drop ${itemType}`}>
@@ -101,7 +117,14 @@ export function RenameModal({ isOpen, onClose, onSubmit, itemType, currentName }
   const go = async () => {
     if (!name.trim() || name.trim() === currentName) return
     setLoading(true)
-    try { await onSubmit(name.trim()); onClose() } catch {} finally { setLoading(false) }
+    try { 
+      await onSubmit(name.trim()); 
+      onClose() 
+    } catch (error) {
+      console.error('Failed to rename:', error)
+    } finally { 
+      setLoading(false) 
+    }
   }
   return (
     <ModalShell isOpen={isOpen} onClose={onClose} title={`Rename ${itemType}`}>
@@ -179,7 +202,17 @@ export function CreateCollectionModal({ isOpen, onClose, onSubmit, dbType }: {
       if (validCols.length === 0) { setLoading(false); return }
       opts = { columns: validCols.map(c => ({ name: c.name.trim(), type: c.type, primaryKey: c.primaryKey, nullable: c.nullable, defaultValue: c.defaultValue || undefined })) }
     }
-    try { await onSubmit(name.trim(), opts); setName(''); setCapped(false); setColumns([{ ...emptyCol(), name: 'id', type: 'SERIAL', primaryKey: true, nullable: false }]); onClose() } catch {} finally { setLoading(false) }
+    try { 
+      await onSubmit(name.trim(), opts); 
+      setName(''); 
+      setCapped(false); 
+      setColumns([{ ...emptyCol(), name: 'id', type: 'SERIAL', primaryKey: true, nullable: false }]); 
+      onClose() 
+    } catch (error) {
+      console.error('Failed to create:', error)
+    } finally { 
+      setLoading(false) 
+    }
   }
 
   const hasValidCols = !isPg || columns.some(c => c.name.trim())
@@ -329,13 +362,23 @@ export function IndexManagerModal({ isOpen, onClose, indexes, onCreateIndex, onD
       if (unique) opts.unique = true
       await onCreateIndex(keys, opts)
       setKeyField(''); setKeyDir('1'); setIndexName(''); setUnique(false); setShowCreate(false)
-    } catch {} finally { setLoading(false) }
+    } catch (error) {
+      console.error('Failed to create index:', error)
+    } finally { 
+      setLoading(false) 
+    }
   }
 
   const handleDrop = async (name: string) => {
     if (name === '_id_') return
     setDropLoading(name)
-    try { await onDropIndex(name) } catch {} finally { setDropLoading('') }
+    try { 
+      await onDropIndex(name) 
+    } catch (error) {
+      console.error('Failed to drop index:', error)
+    } finally { 
+      setDropLoading('') 
+    }
   }
 
   return (

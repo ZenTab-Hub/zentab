@@ -24,29 +24,35 @@ export const AISettingsModal = ({ isOpen, onClose }: AISettingsModalProps) => {
 
   if (!isOpen) return null
 
-  const handleAddModel = () => {
+  const handleAddModel = async () => {
     if (!newModel.name || !newModel.apiKey) {
       tt.warning('Please fill in name and API key')
       return
     }
 
-    addModel({
-      name: newModel.name,
-      provider: newModel.provider,
-      apiKey: newModel.apiKey,
-      apiUrl: newModel.provider === 'custom' ? newModel.apiUrl : undefined,
-      modelName: newModel.provider === 'custom' ? newModel.modelName : undefined,
-    })
+    try {
+      await addModel({
+        name: newModel.name,
+        provider: newModel.provider,
+        apiKey: newModel.apiKey,
+        apiUrl: newModel.provider === 'custom' ? newModel.apiUrl : undefined,
+        modelName: newModel.provider === 'custom' ? newModel.modelName : undefined,
+      })
 
-    // Reset form
-    setNewModel({
-      name: '',
-      provider: 'deepseek',
-      apiKey: '',
-      apiUrl: '',
-      modelName: '',
-    })
-    setShowAddForm(false)
+      tt.success('AI model added successfully')
+
+      // Reset form
+      setNewModel({
+        name: '',
+        provider: 'deepseek',
+        apiKey: '',
+        apiUrl: '',
+        modelName: '',
+      })
+      setShowAddForm(false)
+    } catch (error) {
+      tt.error('Failed to add AI model')
+    }
   }
 
   const providerInfo = {
