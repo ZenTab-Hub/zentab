@@ -437,7 +437,7 @@ export const saveAIModel = (model: AIModel) => {
 
   const now = new Date().toISOString()
   const createdAt = model.createdAt || now
-  const updatedAt = model.updatedAt || now
+  const updatedAt = now // Always use current time for updates
 
   // Encrypt API key before storing
   const encApiKey = model.apiKey ? encryptString(model.apiKey) : null
@@ -459,7 +459,7 @@ export const saveAIModel = (model: AIModel) => {
 export const getAIModels = (): AIModel[] => {
   const db = getStorage()
   const stmt = db.prepare('SELECT * FROM ai_models ORDER BY updatedAt DESC')
-  const rows = stmt.all() as any[]
+  const rows = stmt.all() as Array<Omit<AIModel, 'apiKey'> & { apiKey: string | null }>
 
   // Decrypt API keys after reading
   return rows.map((row) => ({
@@ -477,7 +477,7 @@ export const deleteAIModel = (id: string) => {
 // AI settings (selected model ID, auto-apply settings, etc.)
 export const getAISetting = (key: string): string | null => {
   const db = getStorage()
-  const row = db.prepare('SELECT value FROM ai_settings WHERE key = ?').get(key) as any
+  const row = db.prepare('SELECT value FROM ai_settings WHERE key = ?').get(key) as { value: string } | undefined
   return row ? row.value : null
 }
 

@@ -75,16 +75,18 @@ export const useAISettingsStore = create<AISettingsState>((set, get) => ({
       id: Date.now().toString(),
     }
     
+    const isFirstModel = get().models.length === 0
+    
     try {
       await window.electron.storage.saveAIModel(newModel)
       set((state) => ({
         models: [...state.models, newModel],
         // Auto-select if it's the first model
-        selectedModelId: state.models.length === 0 ? newModel.id : state.selectedModelId,
+        selectedModelId: isFirstModel ? newModel.id : state.selectedModelId,
       }))
       
       // Save selected model if it's the first one
-      if (get().models.length === 1) {
+      if (isFirstModel) {
         await window.electron.storage.setAISetting('selectedModelId', newModel.id)
       }
     } catch (error) {
