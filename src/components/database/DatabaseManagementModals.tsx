@@ -160,7 +160,7 @@ export function CreateCollectionModal({ isOpen, onClose, onSubmit, dbType }: {
   const [capped, setCapped] = useState(false)
   const [size, setSize] = useState('1048576')
   const [columns, setColumns] = useState<PgColumnDef[]>([{ ...emptyCol(), name: 'id', type: 'SERIAL', primaryKey: true, nullable: false }])
-  const label = dbType === 'kafka' ? 'Topic' : dbType === 'mongodb' ? 'Collection' : 'Table'
+  const label = dbType === 'kafka' ? 'Topic' : dbType === 'redis' ? 'Key' : dbType === 'mongodb' ? 'Collection' : 'Table'
   const isPg = dbType === 'postgresql'
 
   const updateCol = (i: number, patch: Partial<PgColumnDef>) => {
@@ -190,7 +190,7 @@ export function CreateCollectionModal({ isOpen, onClose, onSubmit, dbType }: {
         <div>
           <label className="text-xs font-medium mb-1 block">{label} Name</label>
           <input className={IC} value={name} onChange={e => setName(e.target.value)}
-            placeholder={dbType === 'mongodb' ? 'my_collection' : dbType === 'kafka' ? 'my_topic' : 'my_table'}
+            placeholder={dbType === 'mongodb' ? 'my_collection' : dbType === 'kafka' ? 'my_topic' : dbType === 'redis' ? 'user:1001' : 'my_table'}
             autoFocus onKeyDown={e => !isPg && e.key === 'Enter' && go()} />
         </div>
         {dbType === 'mongodb' && (

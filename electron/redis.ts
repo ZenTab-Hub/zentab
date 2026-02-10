@@ -182,6 +182,13 @@ export const redisGetKeyValue = async (connectionId: string, database: string, k
       case 'zset':
         value = await connection.client.zrange(key, 0, -1, 'WITHSCORES')
         break
+      case 'stream': {
+        // Get stream info + recent entries
+        const len = await (connection.client as any).call('XLEN', key)
+        const entries = await (connection.client as any).call('XRANGE', key, '-', '+', 'COUNT', '200')
+        value = { length: len, entries: parseStreamEntries(entries) }
+        break
+      }
       default:
         value = null
     }
@@ -191,6 +198,20 @@ export const redisGetKeyValue = async (connectionId: string, database: string, k
     console.error('Redis get key value error:', error)
     return { success: false, error: error.message }
   }
+}
+
+/** Parse stream entries from raw Redis response */
+function parseStreamEntries(raw: any[]): Array<{ id: string; fields: Record<string, string> }> {
+  if (!Array.isArray(raw)) return []
+  return raw.map((entry: any) => {
+    const id = String(entry[0])
+    const fieldValues = entry[1] || []
+    const fields: Record<string, string> = {}
+    for (let i = 0; i < fieldValues.length; i += 2) {
+      fields[String(fieldValues[i])] = String(fieldValues[i + 1])
+    }
+    return { id, fields }
+  })
 }
 
 /** Set a key value */
@@ -744,6 +765,169 @@ function parseRedisCommand(input: string): string[] {
 }
 
 
+
+/* ── Stream Operations ──────────── */
+
+/** Add entry to a stream (XADD) */
+export const redisStreamAdd = async (connectionId: string, database: string, key: string, fields: Record<string, string>, id: string = '*') => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+    const dbIndex = Number.parseInt(database.replace('db', '')) || 0
+    await connection.client.select(dbIndex)
+    const args: string[] = [key, id]
+    for (const [k, v] of Object.entries(fields)) { args.push(k, v) }
+    const entryId = await (connection.client as any).call('XADD', ...args)
+    return { success: true, entryId }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+/** Read stream entries (XRANGE) */
+export const redisStreamRange = async (connectionId: string, database: string, key: string, start: string = '-', end: string = '+', count: number = 200) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+    const dbIndex = Number.parseInt(database.replace('db', '')) || 0
+    await connection.client.select(dbIndex)
+    const raw = await (connection.client as any).call('XRANGE', key, start, end, 'COUNT', String(count))
+    return { success: true, entries: parseStreamEntries(raw) }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+/** Get stream length (XLEN) */
+export const redisStreamLen = async (connectionId: string, database: string, key: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+    const dbIndex = Number.parseInt(database.replace('db', '')) || 0
+    await connection.client.select(dbIndex)
+    const len = await (connection.client as any).call('XLEN', key)
+    return { success: true, length: len }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+/** Delete stream entries (XDEL) */
+export const redisStreamDel = async (connectionId: string, database: string, key: string, ids: string[]) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+    const dbIndex = Number.parseInt(database.replace('db', '')) || 0
+    await connection.client.select(dbIndex)
+    const deleted = await (connection.client as any).call('XDEL', key, ...ids)
+    return { success: true, deleted }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+/** Trim stream (XTRIM) */
+export const redisStreamTrim = async (connectionId: string, database: string, key: string, maxLen: number) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+    const dbIndex = Number.parseInt(database.replace('db', '')) || 0
+    await connection.client.select(dbIndex)
+    const trimmed = await (connection.client as any).call('XTRIM', key, 'MAXLEN', String(maxLen))
+    return { success: true, trimmed }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+/** Get stream info (XINFO STREAM) */
+export const redisStreamInfo = async (connectionId: string, database: string, key: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+    const dbIndex = Number.parseInt(database.replace('db', '')) || 0
+    await connection.client.select(dbIndex)
+    const raw = await (connection.client as any).call('XINFO', 'STREAM', key)
+    // Parse flat array into object
+    const info: Record<string, any> = {}
+    for (let i = 0; i < raw.length; i += 2) {
+      info[String(raw[i])] = raw[i + 1]
+    }
+    return { success: true, info }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+/* ── Key Encoding ──────────── */
+
+/** Get key encoding (OBJECT ENCODING) */
+export const redisGetKeyEncoding = async (connectionId: string, database: string, key: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+    const dbIndex = Number.parseInt(database.replace('db', '')) || 0
+    await connection.client.select(dbIndex)
+    const encoding = await (connection.client as any).call('OBJECT', 'ENCODING', key)
+    return { success: true, encoding }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+/* ── Quick TTL ──────────── */
+
+/** Set TTL on a key (EXPIRE / PERSIST) */
+export const redisSetKeyTTL = async (connectionId: string, database: string, key: string, ttl: number) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+    const dbIndex = Number.parseInt(database.replace('db', '')) || 0
+    await connection.client.select(dbIndex)
+    if (ttl > 0) {
+      await connection.client.expire(key, ttl)
+    } else {
+      await connection.client.persist(key)
+    }
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+/* ── Key Copy/Duplicate ──────────── */
+
+/** Copy a key to a new name using DUMP/RESTORE */
+export const redisCopyKey = async (connectionId: string, database: string, sourceKey: string, destKey: string) => {
+  try {
+    const connection = connections.get(connectionId)
+    if (!connection) throw new Error('Not connected')
+    const dbIndex = Number.parseInt(database.replace('db', '')) || 0
+    await connection.client.select(dbIndex)
+
+    // Check if dest key already exists
+    const exists = await connection.client.exists(destKey)
+    if (exists) throw new Error(`Key "${destKey}" already exists`)
+
+    // Try COPY command first (Redis 6.2+)
+    try {
+      await (connection.client as any).call('COPY', sourceKey, destKey)
+      // Copy TTL
+      const ttl = await connection.client.pttl(sourceKey)
+      if (ttl > 0) await connection.client.pexpire(destKey, ttl)
+      return { success: true }
+    } catch {
+      // Fallback: DUMP/RESTORE for older Redis
+      const dump = await connection.client.dump(sourceKey)
+      if (!dump) throw new Error('Key not found or empty')
+      const ttl = await connection.client.pttl(sourceKey)
+      await (connection.client as any).call('RESTORE', destKey, ttl > 0 ? String(ttl) : '0', dump)
+      return { success: true }
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
 
 /** Disconnect all Redis connections (used on app quit) */
 export const disconnectAll = async () => {

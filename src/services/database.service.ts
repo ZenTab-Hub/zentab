@@ -372,6 +372,37 @@ class DatabaseService {
   onRedisPubSubMessage(callback: (data: { connectionId: string; channel: string; message: string; timestamp: number }) => void): () => void {
     return redisService.onPubSubMessage(callback)
   }
+
+  /* ── Redis Streams ── */
+  async redisStreamAdd(connectionId: string, database: string, key: string, fields: Record<string, string>, id?: string): Promise<any> {
+    return redisService.streamAdd(connectionId, database, key, fields, id)
+  }
+  async redisStreamRange(connectionId: string, database: string, key: string, start?: string, end?: string, count?: number): Promise<any> {
+    return redisService.streamRange(connectionId, database, key, start, end, count)
+  }
+  async redisStreamLen(connectionId: string, database: string, key: string): Promise<any> {
+    return redisService.streamLen(connectionId, database, key)
+  }
+  async redisStreamDel(connectionId: string, database: string, key: string, ids: string[]): Promise<any> {
+    return redisService.streamDel(connectionId, database, key, ids)
+  }
+  async redisStreamTrim(connectionId: string, database: string, key: string, maxLen: number): Promise<any> {
+    return redisService.streamTrim(connectionId, database, key, maxLen)
+  }
+  async redisStreamInfo(connectionId: string, database: string, key: string): Promise<any> {
+    return redisService.streamInfo(connectionId, database, key)
+  }
+
+  /* ── Redis Key Encoding, Quick TTL, Copy Key ── */
+  async redisGetKeyEncoding(connectionId: string, database: string, key: string): Promise<any> {
+    return redisService.getKeyEncoding(connectionId, database, key)
+  }
+  async redisSetKeyTTL(connectionId: string, database: string, key: string, ttl: number): Promise<any> {
+    return redisService.setKeyTTL(connectionId, database, key, ttl)
+  }
+  async redisCopyKey(connectionId: string, database: string, sourceKey: string, destKey: string): Promise<any> {
+    return redisService.copyKey(connectionId, database, sourceKey, destKey)
+  }
 }
 
 export const databaseService = new DatabaseService()

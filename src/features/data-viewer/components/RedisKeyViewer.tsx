@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Key, RefreshCw, Trash2, Clock, Copy, Edit, Save, X, Plus, HardDrive } from 'lucide-react'
+import { Key, RefreshCw, Trash2, Clock, Copy, Edit, Save, X, Plus, HardDrive, Timer, CopyPlus, Layers } from 'lucide-react'
 import { Input } from '@/components/common/Input'
 import { useConnectionStore } from '@/store/connectionStore'
 import { databaseService } from '@/services/database.service'
@@ -12,10 +12,11 @@ const TYPE_COLORS: Record<string, string> = {
   list: 'bg-purple-500/15 text-purple-400',
   set: 'bg-amber-500/15 text-amber-400',
   zset: 'bg-pink-500/15 text-pink-400',
+  stream: 'bg-cyan-500/15 text-cyan-400',
   unknown: 'bg-muted text-muted-foreground',
 }
 
-const KEY_TYPES = ['string', 'hash', 'list', 'set', 'zset'] as const
+const KEY_TYPES = ['string', 'hash', 'list', 'set', 'zset', 'stream'] as const
 
 export const RedisKeyViewer = () => {
   const { activeConnectionId, selectedDatabase, selectedCollection, setSelectedCollection } = useConnectionStore()
@@ -38,6 +39,17 @@ export const RedisKeyViewer = () => {
   const [newKeyValue, setNewKeyValue] = useState('')
   const [newKeyTTL, setNewKeyTTL] = useState('')
   const [creatingLoading, setCreatingLoading] = useState(false)
+  // Key encoding
+  const [encoding, setEncoding] = useState<string | null>(null)
+  // Quick TTL
+  const [showTTLForm, setShowTTLForm] = useState(false)
+  const [quickTTL, setQuickTTL] = useState('')
+  // Copy key
+  const [showCopyForm, setShowCopyForm] = useState(false)
+  const [copyKeyName, setCopyKeyName] = useState('')
+  // Stream add entry
+  const [showStreamAdd, setShowStreamAdd] = useState(false)
+  const [streamFields, setStreamFields] = useState<Array<{ key: string; value: string }>>([{ key: '', value: '' }])
 
   // Load key value when selection changes
   useEffect(() => {
@@ -58,12 +70,15 @@ export const RedisKeyViewer = () => {
         setEditing(false)
         setShowAddForm(false)
       }
-      // Load memory usage
+      // Load memory usage + encoding in parallel
       try {
-        const memResult = await databaseService.redisMemoryUsage(activeConnectionId, selectedDatabase, selectedCollection)
-        if (memResult.success) setMemoryUsage(memResult.bytes)
-        else setMemoryUsage(null)
-      } catch { setMemoryUsage(null) }
+        const [memResult, encResult] = await Promise.all([
+          databaseService.redisMemoryUsage(activeConnectionId, selectedDatabase, selectedCollection),
+          databaseService.redisGetKeyEncoding(activeConnectionId, selectedDatabase, selectedCollection),
+        ])
+        setMemoryUsage(memResult.success ? memResult.bytes : null)
+        setEncoding(encResult.success ? encResult.encoding : null)
+      } catch { setMemoryUsage(null); setEncoding(null) }
     } catch (error) {
       console.error('Failed to load key value:', error)
     } finally {
@@ -181,6 +196,60 @@ export const RedisKeyViewer = () => {
     return `${Math.floor(ttl / 86400)}d ${Math.floor((ttl % 86400) / 3600)}h`
   }
 
+  const handleQuickTTL = async () => {
+    if (!activeConnectionId || !selectedDatabase || !selectedCollection) return
+    const ttlVal = quickTTL.trim() === '' ? 0 : Number.parseInt(quickTTL)
+    if (Number.isNaN(ttlVal) || ttlVal < 0) { tt.error('Invalid TTL value'); return }
+    try {
+      const r = await databaseService.redisSetKeyTTL(activeConnectionId, selectedDatabase, selectedCollection, ttlVal)
+      if (r.success) {
+        tt.success(ttlVal > 0 ? `TTL set to ${ttlVal}s` : 'TTL removed (persistent)')
+        setShowTTLForm(false); setQuickTTL('')
+        await loadKeyValue()
+      } else { tt.error(r.error) }
+    } catch (e: any) { tt.error(e.message) }
+  }
+
+  const handleCopyKey = async () => {
+    if (!activeConnectionId || !selectedDatabase || !selectedCollection) return
+    if (!copyKeyName.trim()) { tt.error('Destination key name is required'); return }
+    try {
+      const r = await databaseService.redisCopyKey(activeConnectionId, selectedDatabase, selectedCollection, copyKeyName.trim())
+      if (r.success) {
+        tt.success(`Key copied to "${copyKeyName.trim()}"`)
+        setShowCopyForm(false); setCopyKeyName('')
+      } else { tt.error(r.error) }
+    } catch (e: any) { tt.error(e.message) }
+  }
+
+  const handleStreamAdd = async () => {
+    if (!activeConnectionId || !selectedDatabase || !selectedCollection) return
+    const fields: Record<string, string> = {}
+    for (const f of streamFields) {
+      if (f.key.trim()) fields[f.key.trim()] = f.value
+    }
+    if (Object.keys(fields).length === 0) { tt.error('At least one field is required'); return }
+    try {
+      const r = await databaseService.redisStreamAdd(activeConnectionId, selectedDatabase, selectedCollection, fields)
+      if (r.success) {
+        tt.success(`Entry added: ${r.entryId}`)
+        setShowStreamAdd(false); setStreamFields([{ key: '', value: '' }])
+        await loadKeyValue()
+      } else { tt.error(r.error) }
+    } catch (e: any) { tt.error(e.message) }
+  }
+
+  const handleStreamDelete = async (entryId: string) => {
+    if (!activeConnectionId || !selectedDatabase || !selectedCollection) return
+    tt.confirm(`Delete stream entry "${entryId}"?`, async () => {
+      try {
+        const r = await databaseService.redisStreamDel(activeConnectionId, selectedDatabase, selectedCollection, [entryId])
+        if (r.success) { tt.success('Entry deleted'); await loadKeyValue() }
+        else { tt.error(r.error) }
+      } catch (e: any) { tt.error(e.message) }
+    })
+  }
+
   const renderValue = () => {
     if (!keyData) return null
     const { type, value } = keyData
@@ -246,6 +315,43 @@ export const RedisKeyViewer = () => {
               </button>
             </div>
           ))}
+        </div>
+      )
+    }
+
+    if (type === 'stream') {
+      const entries = value?.entries || []
+      const length = value?.length ?? entries.length
+      return (
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 mb-2 text-[10px] text-muted-foreground">
+            <Layers className="h-3 w-3" />
+            <span>{length} entries total</span>
+            {entries.length < length && <span>(showing latest {entries.length})</span>}
+          </div>
+          {entries.length === 0 ? (
+            <p className="text-[11px] text-muted-foreground italic">Stream is empty</p>
+          ) : (
+            entries.map((entry: { id: string; fields: Record<string, string> }) => (
+              <div key={entry.id} className="group rounded-md border bg-muted/20 p-2">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-mono text-cyan-400 font-medium">{entry.id}</span>
+                  <button onClick={() => handleStreamDelete(entry.id)} className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-destructive/20 text-destructive transition-opacity" title="Delete entry">
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+                <div className="space-y-0.5">
+                  {Object.entries(entry.fields).map(([k, v]) => (
+                    <div key={k} className="flex items-center gap-2 text-[11px] font-mono pl-2">
+                      <span className="text-blue-400 shrink-0 min-w-[80px]">{k}</span>
+                      <span className="text-muted-foreground">→</span>
+                      <span className="break-all flex-1">{String(v)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )
     }
@@ -371,7 +477,7 @@ export const RedisKeyViewer = () => {
 
       {/* Key Info Bar */}
       {keyData && (
-        <div className="flex items-center gap-3 rounded-md border bg-card px-3 py-2">
+        <div className="flex items-center gap-3 rounded-md border bg-card px-3 py-2 flex-wrap">
           <div className="flex items-center gap-1.5">
             <Key className="h-3 w-3 text-red-400" />
             <span className="text-[11px] font-mono font-medium">{keyData.key}</span>
@@ -379,6 +485,11 @@ export const RedisKeyViewer = () => {
           <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${TYPE_COLORS[keyData.type] || TYPE_COLORS.unknown}`}>
             {keyData.type}
           </span>
+          {encoding && (
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground" title="Internal encoding">
+              {encoding}
+            </span>
+          )}
           <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
             <Clock className="h-3 w-3" />
             <span>TTL: {formatTTL(keyData.ttl)}</span>
@@ -389,16 +500,37 @@ export const RedisKeyViewer = () => {
               <span>{formatBytes(memoryUsage)}</span>
             </div>
           )}
-          {keyData.type !== 'string' && keyData.value && (
+          {keyData.type === 'stream' && keyData.value && (
+            <span className="text-[10px] text-muted-foreground">{keyData.value.length ?? 0} entries</span>
+          )}
+          {keyData.type !== 'string' && keyData.type !== 'stream' && keyData.value && (
             <span className="text-[10px] text-muted-foreground">
               {Array.isArray(keyData.value) ? `${keyData.value.length} items` : typeof keyData.value === 'object' ? `${Object.keys(keyData.value).length} fields` : ''}
             </span>
           )}
           <div className="flex-1" />
-          {keyData.type !== 'string' && (
+          {/* Quick TTL */}
+          <button onClick={() => { setShowTTLForm(!showTTLForm); setShowCopyForm(false) }}
+            className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-md border hover:bg-accent transition-colors" title="Set/Remove TTL">
+            <Timer className="h-3 w-3" /> TTL
+          </button>
+          {/* Copy Key */}
+          <button onClick={() => { setShowCopyForm(!showCopyForm); setShowTTLForm(false) }}
+            className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-md border hover:bg-accent transition-colors" title="Duplicate key">
+            <CopyPlus className="h-3 w-3" /> Duplicate
+          </button>
+          {/* Add Item (for non-string, non-stream) */}
+          {keyData.type !== 'string' && keyData.type !== 'stream' && (
             <button onClick={() => setShowAddForm(!showAddForm)}
               className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-md border hover:bg-accent transition-colors">
               <Plus className="h-3 w-3" /> Add Item
+            </button>
+          )}
+          {/* Add Entry (for stream) */}
+          {keyData.type === 'stream' && (
+            <button onClick={() => setShowStreamAdd(!showStreamAdd)}
+              className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-md border border-cyan-500/30 text-cyan-500 hover:bg-cyan-500/10 transition-colors">
+              <Plus className="h-3 w-3" /> Add Entry
             </button>
           )}
         </div>
@@ -426,6 +558,69 @@ export const RedisKeyViewer = () => {
               Cancel
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Quick TTL Form */}
+      {showTTLForm && keyData && (
+        <div className="rounded-md border bg-card p-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-medium shrink-0">Set TTL:</span>
+            <input value={quickTTL} onChange={e => setQuickTTL(e.target.value)} type="number" placeholder="seconds (0 = remove)"
+              className="px-2 py-1.5 text-[11px] font-mono rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-primary w-40" autoFocus />
+            <button onClick={handleQuickTTL} className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+              <Timer className="h-3 w-3" /> Apply
+            </button>
+            <button onClick={() => { setShowTTLForm(false); setQuickTTL('') }} className="px-2 py-1.5 text-[10px] rounded-md border hover:bg-accent transition-colors">Cancel</button>
+            <span className="text-[10px] text-muted-foreground ml-1">Enter 0 or leave empty to remove TTL</span>
+          </div>
+        </div>
+      )}
+
+      {/* Copy Key Form */}
+      {showCopyForm && keyData && (
+        <div className="rounded-md border bg-card p-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-medium shrink-0">Copy to:</span>
+            <input value={copyKeyName} onChange={e => setCopyKeyName(e.target.value)} placeholder="new:key:name"
+              className="px-2 py-1.5 text-[11px] font-mono rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-primary flex-1 min-w-[200px]" autoFocus />
+            <button onClick={handleCopyKey} className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+              <CopyPlus className="h-3 w-3" /> Copy
+            </button>
+            <button onClick={() => { setShowCopyForm(false); setCopyKeyName('') }} className="px-2 py-1.5 text-[10px] rounded-md border hover:bg-accent transition-colors">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Stream Add Entry Form */}
+      {showStreamAdd && keyData && keyData.type === 'stream' && (
+        <div className="rounded-md border border-cyan-500/20 bg-card p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium">Add Stream Entry</span>
+            <div className="flex gap-1.5">
+              <button onClick={handleStreamAdd} className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-medium rounded-md bg-cyan-600 text-white hover:bg-cyan-700 transition-colors">
+                <Plus className="h-3 w-3" /> Add Entry
+              </button>
+              <button onClick={() => { setShowStreamAdd(false); setStreamFields([{ key: '', value: '' }]) }} className="px-2 py-1.5 text-[10px] rounded-md border hover:bg-accent transition-colors">Cancel</button>
+            </div>
+          </div>
+          {streamFields.map((f, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input value={f.key} onChange={e => { const nf = [...streamFields]; nf[i] = { ...nf[i], key: e.target.value }; setStreamFields(nf) }}
+                placeholder="Field name" className="px-2 py-1.5 text-[11px] font-mono rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-primary w-40" />
+              <input value={f.value} onChange={e => { const nf = [...streamFields]; nf[i] = { ...nf[i], value: e.target.value }; setStreamFields(nf) }}
+                placeholder="Value" className="px-2 py-1.5 text-[11px] font-mono rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-primary flex-1" />
+              {streamFields.length > 1 && (
+                <button onClick={() => setStreamFields(streamFields.filter((_, j) => j !== i))} className="p-1 rounded hover:bg-destructive/20 text-destructive transition-colors">
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          ))}
+          <button onClick={() => setStreamFields([...streamFields, { key: '', value: '' }])}
+            className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-md border border-dashed hover:bg-accent transition-colors w-full justify-center">
+            <Plus className="h-3 w-3" /> Add Field
+          </button>
         </div>
       )}
 

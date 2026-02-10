@@ -194,6 +194,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on('redis:pubsubMessage', handler)
       return () => ipcRenderer.removeListener('redis:pubsubMessage', handler)
     },
+    // Streams
+    streamAdd: (connectionId: string, database: string, key: string, fields: Record<string, string>, id?: string) =>
+      ipcRenderer.invoke('redis:streamAdd', connectionId, database, key, fields, id || '*'),
+    streamRange: (connectionId: string, database: string, key: string, start?: string, end?: string, count?: number) =>
+      ipcRenderer.invoke('redis:streamRange', connectionId, database, key, start || '-', end || '+', count || 200),
+    streamLen: (connectionId: string, database: string, key: string) =>
+      ipcRenderer.invoke('redis:streamLen', connectionId, database, key),
+    streamDel: (connectionId: string, database: string, key: string, ids: string[]) =>
+      ipcRenderer.invoke('redis:streamDel', connectionId, database, key, ids),
+    streamTrim: (connectionId: string, database: string, key: string, maxLen: number) =>
+      ipcRenderer.invoke('redis:streamTrim', connectionId, database, key, maxLen),
+    streamInfo: (connectionId: string, database: string, key: string) =>
+      ipcRenderer.invoke('redis:streamInfo', connectionId, database, key),
+    // Key Encoding, Quick TTL, Copy Key
+    getKeyEncoding: (connectionId: string, database: string, key: string) =>
+      ipcRenderer.invoke('redis:getKeyEncoding', connectionId, database, key),
+    setKeyTTL: (connectionId: string, database: string, key: string, ttl: number) =>
+      ipcRenderer.invoke('redis:setKeyTTL', connectionId, database, key, ttl),
+    copyKey: (connectionId: string, database: string, sourceKey: string, destKey: string) =>
+      ipcRenderer.invoke('redis:copyKey', connectionId, database, sourceKey, destKey),
   },
 
   // Kafka operations

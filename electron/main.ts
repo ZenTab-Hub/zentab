@@ -6,7 +6,7 @@ import * as OTPAuth from 'otpauth'
 import QRCode from 'qrcode'
 import { connectToMongoDB, disconnectFromMongoDB, pingMongoDB, listDatabases, listCollections, executeQuery, insertDocument, updateDocument, deleteDocument, updateMany, deleteMany, countDocuments, aggregate, getCollectionStats, mongoCreateDatabase, mongoDropDatabase, mongoCreateCollection, mongoDropCollection, mongoRenameCollection, mongoListIndexes, mongoCreateIndex, mongoDropIndex, explainQuery, getServerStatus, disconnectAll as disconnectAllMongo } from './mongodb'
 import { connectToPostgreSQL, disconnectFromPostgreSQL, pingPostgreSQL, pgListDatabases, pgListTables, pgExecuteQuery, pgFindQuery, pgInsertDocument, pgUpdateDocument, pgDeleteDocument, pgUpdateMany, pgDeleteMany, pgCountRows, pgAggregate, pgGetTableSchema, pgCreateDatabase, pgDropDatabase, pgCreateTable, pgDropTable, pgRenameTable, pgListIndexes, pgCreateIndex, pgDropIndex, pgExplainQuery, pgGetServerStats, disconnectAll as disconnectAllPg } from './postgresql'
-import { connectToRedis, disconnectFromRedis, pingRedis, redisListDatabases, redisListKeys, redisGetKeyValue, redisSetKey, redisDeleteKey, redisExecuteCommand, redisGetInfo, redisFlushDatabase, redisRenameKey, redisGetServerStats, redisGetSlowLog, redisGetClients, redisMemoryUsage, redisBulkDelete, redisBulkTTL, redisAddItem, redisRemoveItem, redisSubscribe, redisUnsubscribe, redisUnsubscribeAll, redisPublish, redisGetPubSubChannels, setPubSubMessageCallback, disconnectAll as disconnectAllRedis } from './redis'
+import { connectToRedis, disconnectFromRedis, pingRedis, redisListDatabases, redisListKeys, redisGetKeyValue, redisSetKey, redisDeleteKey, redisExecuteCommand, redisGetInfo, redisFlushDatabase, redisRenameKey, redisGetServerStats, redisGetSlowLog, redisGetClients, redisMemoryUsage, redisBulkDelete, redisBulkTTL, redisAddItem, redisRemoveItem, redisSubscribe, redisUnsubscribe, redisUnsubscribeAll, redisPublish, redisGetPubSubChannels, setPubSubMessageCallback, redisStreamAdd, redisStreamRange, redisStreamLen, redisStreamDel, redisStreamTrim, redisStreamInfo, redisGetKeyEncoding, redisSetKeyTTL, redisCopyKey, disconnectAll as disconnectAllRedis } from './redis'
 import { connectToKafka, disconnectFromKafka, pingKafka, kafkaListTopics, kafkaGetTopicMetadata, kafkaConsumeMessages, kafkaProduceMessage, kafkaCreateTopic, kafkaDeleteTopic, kafkaGetClusterInfo, disconnectAll as disconnectAllKafka } from './kafka'
 import { createSSHTunnel, closeSSHTunnel, closeAllSSHTunnels, type SSHTunnelConfig } from './ssh-tunnel'
 import { initUpdater, setupUpdaterIPC, checkForUpdatesQuietly } from './updater'
@@ -522,6 +522,37 @@ ipcMain.handle('redis:publish', async (_event, connectionId, channel, message) =
 })
 ipcMain.handle('redis:getPubSubChannels', async (_event, connectionId) => {
   return await redisGetPubSubChannels(connectionId)
+})
+
+// Redis Stream IPC Handlers
+ipcMain.handle('redis:streamAdd', async (_event, connectionId, database, key, fields, id) => {
+  return await redisStreamAdd(connectionId, database, key, fields, id)
+})
+ipcMain.handle('redis:streamRange', async (_event, connectionId, database, key, start, end, count) => {
+  return await redisStreamRange(connectionId, database, key, start, end, count)
+})
+ipcMain.handle('redis:streamLen', async (_event, connectionId, database, key) => {
+  return await redisStreamLen(connectionId, database, key)
+})
+ipcMain.handle('redis:streamDel', async (_event, connectionId, database, key, ids) => {
+  return await redisStreamDel(connectionId, database, key, ids)
+})
+ipcMain.handle('redis:streamTrim', async (_event, connectionId, database, key, maxLen) => {
+  return await redisStreamTrim(connectionId, database, key, maxLen)
+})
+ipcMain.handle('redis:streamInfo', async (_event, connectionId, database, key) => {
+  return await redisStreamInfo(connectionId, database, key)
+})
+
+// Redis Key Encoding, Quick TTL, Copy Key IPC Handlers
+ipcMain.handle('redis:getKeyEncoding', async (_event, connectionId, database, key) => {
+  return await redisGetKeyEncoding(connectionId, database, key)
+})
+ipcMain.handle('redis:setKeyTTL', async (_event, connectionId, database, key, ttl) => {
+  return await redisSetKeyTTL(connectionId, database, key, ttl)
+})
+ipcMain.handle('redis:copyKey', async (_event, connectionId, database, sourceKey, destKey) => {
+  return await redisCopyKey(connectionId, database, sourceKey, destKey)
 })
 
 // Set up pub/sub message forwarding to renderer

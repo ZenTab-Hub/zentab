@@ -121,6 +121,46 @@ class RedisService {
     if (!window.electronAPI) return () => {}
     return (window.electronAPI as any).redis.onPubSubMessage(callback)
   }
+
+  // Streams
+  async streamAdd(connectionId: string, database: string, key: string, fields: Record<string, string>, id?: string): Promise<any> {
+    return this.callElectronAPI('streamAdd', connectionId, database, key, fields, id || '*')
+  }
+
+  async streamRange(connectionId: string, database: string, key: string, start?: string, end?: string, count?: number): Promise<any> {
+    return this.callElectronAPI('streamRange', connectionId, database, key, start || '-', end || '+', count || 200)
+  }
+
+  async streamLen(connectionId: string, database: string, key: string): Promise<any> {
+    return this.callElectronAPI('streamLen', connectionId, database, key)
+  }
+
+  async streamDel(connectionId: string, database: string, key: string, ids: string[]): Promise<any> {
+    return this.callElectronAPI('streamDel', connectionId, database, key, ids)
+  }
+
+  async streamTrim(connectionId: string, database: string, key: string, maxLen: number): Promise<any> {
+    return this.callElectronAPI('streamTrim', connectionId, database, key, maxLen)
+  }
+
+  async streamInfo(connectionId: string, database: string, key: string): Promise<any> {
+    return this.callElectronAPI('streamInfo', connectionId, database, key)
+  }
+
+  // Key Encoding
+  async getKeyEncoding(connectionId: string, database: string, key: string): Promise<any> {
+    return this.callElectronAPI('getKeyEncoding', connectionId, database, key)
+  }
+
+  // Quick TTL
+  async setKeyTTL(connectionId: string, database: string, key: string, ttl: number): Promise<any> {
+    return this.callElectronAPI('setKeyTTL', connectionId, database, key, ttl)
+  }
+
+  // Copy Key
+  async copyKey(connectionId: string, database: string, sourceKey: string, destKey: string): Promise<any> {
+    return this.callElectronAPI('copyKey', connectionId, database, sourceKey, destKey)
+  }
 }
 
 export const redisService = new RedisService()
