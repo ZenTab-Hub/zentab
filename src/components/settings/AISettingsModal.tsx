@@ -24,18 +24,21 @@ export const AISettingsModal = ({ isOpen, onClose }: AISettingsModalProps) => {
 
   if (!isOpen) return null
 
+  const isOllama = newModel.provider === 'ollama'
+  const needsCustomFields = newModel.provider === 'custom' || isOllama
+
   const handleAddModel = () => {
-    if (!newModel.name || !newModel.apiKey) {
-      tt.warning('Please fill in name and API key')
+    if (!newModel.name || (!isOllama && !newModel.apiKey)) {
+      tt.warning(isOllama ? 'Please fill in model name' : 'Please fill in name and API key')
       return
     }
 
     addModel({
       name: newModel.name,
       provider: newModel.provider,
-      apiKey: newModel.apiKey,
-      apiUrl: newModel.provider === 'custom' ? newModel.apiUrl : undefined,
-      modelName: newModel.provider === 'custom' ? newModel.modelName : undefined,
+      apiKey: newModel.apiKey || 'ollama',
+      apiUrl: needsCustomFields ? newModel.apiUrl : undefined,
+      modelName: needsCustomFields ? newModel.modelName : undefined,
     })
 
     // Reset form
@@ -49,7 +52,7 @@ export const AISettingsModal = ({ isOpen, onClose }: AISettingsModalProps) => {
     setShowAddForm(false)
   }
 
-  const providerInfo = {
+  const providerInfo: Record<AIProvider, { name: string; url: string; defaultModel: string }> = {
     deepseek: {
       name: 'DeepSeek',
       url: 'https://platform.deepseek.com',
@@ -60,10 +63,40 @@ export const AISettingsModal = ({ isOpen, onClose }: AISettingsModalProps) => {
       url: 'https://platform.openai.com/api-keys',
       defaultModel: 'gpt-4o-mini',
     },
+    anthropic: {
+      name: 'Anthropic Claude',
+      url: 'https://console.anthropic.com/settings/keys',
+      defaultModel: 'claude-sonnet-4-20250514',
+    },
     gemini: {
       name: 'Google Gemini',
       url: 'https://aistudio.google.com/app/apikey',
       defaultModel: 'gemini-1.5-flash',
+    },
+    groq: {
+      name: 'Groq',
+      url: 'https://console.groq.com/keys',
+      defaultModel: 'llama-3.3-70b-versatile',
+    },
+    mistral: {
+      name: 'Mistral AI',
+      url: 'https://console.mistral.ai/api-keys',
+      defaultModel: 'mistral-large-latest',
+    },
+    xai: {
+      name: 'xAI Grok',
+      url: 'https://console.x.ai',
+      defaultModel: 'grok-2-latest',
+    },
+    openrouter: {
+      name: 'OpenRouter',
+      url: 'https://openrouter.ai/keys',
+      defaultModel: 'auto',
+    },
+    ollama: {
+      name: 'Ollama (Local)',
+      url: 'https://ollama.com',
+      defaultModel: 'llama3.2',
     },
     custom: {
       name: 'Custom Provider',
@@ -163,39 +196,42 @@ export const AISettingsModal = ({ isOpen, onClose }: AISettingsModalProps) => {
                     onChange={(e) => setNewModel({ ...newModel, provider: e.target.value as AIProvider })}
                     className="w-full px-3 py-2 rounded-md border bg-background"
                   >
-                    <option value="deepseek">DeepSeek</option>
-                    <option value="openai">OpenAI GPT</option>
-                    <option value="gemini">Google Gemini</option>
-                    <option value="custom">Custom Provider</option>
+                    {(Object.keys(providerInfo) as AIProvider[]).map((key) => (
+                      <option key={key} value={key}>{providerInfo[key].name}</option>
+                    ))}
                   </select>
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium">API Key</label>
-                  <Input
-                    type="password"
-                    placeholder="Enter API key"
-                    value={newModel.apiKey}
-                    onChange={(e) => setNewModel({ ...newModel, apiKey: e.target.value })}
-                  />
-                  {providerInfo[newModel.provider].url && (
-                    <a
-                      href={providerInfo[newModel.provider].url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-500 hover:underline flex items-center gap-1 mt-1"
-                    >
-                      Get API key <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )}
-                </div>
+                {newModel.provider !== 'ollama' ? (
+                  <div>
+                    <label className="text-sm font-medium">API Key</label>
+                    <Input
+                      type="password"
+                      placeholder="Enter API key"
+                      value={newModel.apiKey}
+                      onChange={(e) => setNewModel({ ...newModel, apiKey: e.target.value })}
+                    />
+                    {providerInfo[newModel.provider].url && (
+                      <a
+                        href={providerInfo[newModel.provider].url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-500 hover:underline flex items-center gap-1 mt-1"
+                      >
+                        Get API key <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Ollama runs locally — no API key needed. Make sure Ollama is running on your machine.</p>
+                )}
 
-                {newModel.provider === 'custom' && (
+                {(newModel.provider === 'custom' || newModel.provider === 'ollama') && (
                   <>
                     <div>
                       <label className="text-sm font-medium">API URL</label>
                       <Input
-                        placeholder="https://api.example.com/v1/chat/completions"
+                        placeholder={newModel.provider === 'ollama' ? 'http://localhost:11434/v1/chat/completions' : 'https://api.example.com/v1/chat/completions'}
                         value={newModel.apiUrl}
                         onChange={(e) => setNewModel({ ...newModel, apiUrl: e.target.value })}
                       />

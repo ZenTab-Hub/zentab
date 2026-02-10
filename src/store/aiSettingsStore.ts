@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-export type AIProvider = 'deepseek' | 'openai' | 'gemini' | 'custom'
+export type AIProvider = 'deepseek' | 'openai' | 'anthropic' | 'groq' | 'mistral' | 'xai' | 'openrouter' | 'ollama' | 'gemini' | 'custom'
 
 export interface AIModel {
   id: string

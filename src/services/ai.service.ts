@@ -1,5 +1,5 @@
 // AI Service for converting natural language to MongoDB queries and general chat
-// Supports: DeepSeek, OpenAI GPT, Google Gemini, Custom providers
+// Supports: DeepSeek, OpenAI GPT, Anthropic Claude, Groq, Mistral, xAI Grok, OpenRouter, Ollama, Google Gemini, Custom providers
 
 import type { AIModel } from '@/store/aiSettingsStore'
 
@@ -16,6 +16,30 @@ const AI_CONFIGS = {
   openai: {
     url: 'https://api.openai.com/v1/chat/completions',
     model: 'gpt-4o-mini',
+  },
+  anthropic: {
+    url: 'https://api.anthropic.com/v1/messages',
+    model: 'claude-sonnet-4-20250514',
+  },
+  groq: {
+    url: 'https://api.groq.com/openai/v1/chat/completions',
+    model: 'llama-3.3-70b-versatile',
+  },
+  mistral: {
+    url: 'https://api.mistral.ai/v1/chat/completions',
+    model: 'mistral-large-latest',
+  },
+  xai: {
+    url: 'https://api.x.ai/v1/chat/completions',
+    model: 'grok-2-latest',
+  },
+  openrouter: {
+    url: 'https://openrouter.ai/api/v1/chat/completions',
+    model: 'auto',
+  },
+  ollama: {
+    url: 'http://localhost:11434/v1/chat/completions',
+    model: 'llama3.2',
   },
   gemini: {
     url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
@@ -47,10 +71,11 @@ export interface NaturalLanguageQueryResponse {
 
 class AIService {
   getConfig(model: AIModel) {
-    if (model.provider === 'custom') {
+    if (model.provider === 'custom' || model.provider === 'ollama') {
+      const defaults = AI_CONFIGS[model.provider]
       return {
-        url: model.apiUrl || '',
-        model: model.modelName || '',
+        url: model.apiUrl || defaults.url,
+        model: model.modelName || defaults.model,
       }
     }
     return AI_CONFIGS[model.provider]
@@ -136,8 +161,11 @@ Output: {"filter": {}, "options": {}}`
       if (provider === 'gemini') {
         // Google Gemini API format
         aiResponse = await this.callGeminiAPI(systemPrompt, userPrompt, apiKey, model)
+      } else if (provider === 'anthropic') {
+        // Anthropic Claude API format (different from OpenAI)
+        aiResponse = await this.callAnthropicAPI(systemPrompt, userPrompt, apiKey, model)
       } else {
-        // OpenAI-compatible format (DeepSeek, OpenAI, Custom)
+        // OpenAI-compatible format (DeepSeek, OpenAI, Groq, Mistral, xAI, OpenRouter, Ollama, Custom)
         aiResponse = await this.callOpenAICompatibleAPI(systemPrompt, userPrompt, apiKey, model)
       }
 
@@ -250,6 +278,42 @@ Output: {"filter": {}, "options": {}}`
     return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
   }
 
+  private async callAnthropicAPI(
+    systemPrompt: string,
+    userPrompt: string,
+    apiKey: string,
+    model: AIModel
+  ): Promise<string> {
+    const config = this.getConfig(model)
+
+    const response = await fetch(config.url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: config.model,
+        system: systemPrompt,
+        messages: [
+          { role: 'user', content: userPrompt },
+        ],
+        max_tokens: 1024,
+        temperature: 0.1,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error?.message || `API error: ${response.status}`)
+    }
+
+    const data = await response.json()
+    return data.content?.[0]?.text?.trim() || ''
+  }
+
   /**
    * Stream a chat response from the AI model.
    * Calls onChunk with each text chunk as it arrives.
@@ -272,7 +336,12 @@ Output: {"filter": {}, "options": {}}`
       return this.chatGeminiNonStream(messages, model)
     }
 
-    // OpenAI-compatible streaming (DeepSeek, OpenAI, Custom)
+    if (model.provider === 'anthropic') {
+      // Anthropic streaming uses different SSE format
+      return this.chatAnthropicStream(messages, model, onChunk, signal)
+    }
+
+    // OpenAI-compatible streaming (DeepSeek, OpenAI, Groq, Mistral, xAI, OpenRouter, Ollama, Custom)
     const response = await fetch(config.url, {
       method: 'POST',
       headers: {
@@ -372,6 +441,78 @@ Output: {"filter": {}, "options": {}}`
 
     const data = await response.json()
     return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
+  }
+
+  private async chatAnthropicStream(
+    messages: ChatMessage[],
+    model: AIModel,
+    onChunk: (chunk: string) => void,
+    signal?: AbortSignal
+  ): Promise<string> {
+    const config = this.getConfig(model)
+
+    // Extract system message
+    const systemMsg = messages.find(m => m.role === 'system')
+    const chatMessages = messages.filter(m => m.role !== 'system')
+
+    const response = await fetch(config.url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': model.apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: config.model,
+        system: systemMsg?.content || '',
+        messages: chatMessages.map(m => ({ role: m.role, content: m.content })),
+        max_tokens: 4096,
+        temperature: 0.7,
+        stream: true,
+      }),
+      signal,
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error?.message || `API error: ${response.status}`)
+    }
+
+    const reader = response.body?.getReader()
+    if (!reader) throw new Error('No response body')
+
+    const decoder = new TextDecoder()
+    let fullText = ''
+    let buffer = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed || !trimmed.startsWith('data: ')) continue
+        const data = trimmed.slice(6)
+
+        try {
+          const parsed = JSON.parse(data)
+          // Anthropic SSE: content_block_delta events contain text
+          if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+            fullText += parsed.delta.text
+            onChunk(parsed.delta.text)
+          }
+        } catch {
+          // skip malformed chunks
+        }
+      }
+    }
+
+    return fullText
   }
 }
 

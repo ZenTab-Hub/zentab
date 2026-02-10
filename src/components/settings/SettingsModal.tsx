@@ -175,16 +175,30 @@ function AIModelsTab() {
   const providers: { value: AIProvider; label: string; url: string }[] = [
     { value: 'deepseek', label: 'DeepSeek', url: 'https://platform.deepseek.com' },
     { value: 'openai', label: 'OpenAI GPT', url: 'https://platform.openai.com/api-keys' },
+    { value: 'anthropic', label: 'Anthropic Claude', url: 'https://console.anthropic.com/settings/keys' },
     { value: 'gemini', label: 'Google Gemini', url: 'https://aistudio.google.com/app/apikey' },
+    { value: 'groq', label: 'Groq', url: 'https://console.groq.com/keys' },
+    { value: 'mistral', label: 'Mistral AI', url: 'https://console.mistral.ai/api-keys' },
+    { value: 'xai', label: 'xAI Grok', url: 'https://console.x.ai' },
+    { value: 'openrouter', label: 'OpenRouter', url: 'https://openrouter.ai/keys' },
+    { value: 'ollama', label: 'Ollama (Local)', url: 'https://ollama.com' },
     { value: 'custom', label: 'Custom Provider', url: '' },
   ]
 
+  const needsApiKey = form.provider !== 'ollama'
+  const needsCustomFields = form.provider === 'custom' || form.provider === 'ollama'
+
   const handleAdd = useCallback(() => {
-    if (!form.name || !form.apiKey) return
-    addModel({ ...form, apiUrl: form.provider === 'custom' ? form.apiUrl : undefined, modelName: form.provider === 'custom' ? form.modelName : undefined })
+    if (!form.name || (needsApiKey && !form.apiKey)) return
+    addModel({
+      ...form,
+      apiKey: form.apiKey || 'ollama', // Ollama doesn't need a real API key
+      apiUrl: needsCustomFields ? form.apiUrl : undefined,
+      modelName: needsCustomFields ? form.modelName : undefined,
+    })
     setForm({ name: '', provider: 'deepseek', apiKey: '', apiUrl: '', modelName: '' })
     setShowAdd(false)
-  }, [form, addModel])
+  }, [form, addModel, needsApiKey, needsCustomFields])
 
   return (
     <div>
@@ -229,20 +243,25 @@ function AIModelsTab() {
               {providers.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
           </div>
-          <div>
-            <label className={LABEL_CLS}>API Key</label>
-            <input type="password" className={INPUT_CLS} placeholder="Enter API key" value={form.apiKey} onChange={(e) => setForm({ ...form, apiKey: e.target.value })} />
-            {providers.find((p) => p.value === form.provider)?.url && (
-              <a href={providers.find((p) => p.value === form.provider)!.url} target="_blank" rel="noopener noreferrer"
-                className="text-[11px] text-primary hover:underline flex items-center gap-0.5 mt-1">
-                Get API key <ExternalLink className="h-2.5 w-2.5" />
-              </a>
-            )}
-          </div>
-          {form.provider === 'custom' && (
+          {needsApiKey && (
+            <div>
+              <label className={LABEL_CLS}>API Key</label>
+              <input type="password" className={INPUT_CLS} placeholder="Enter API key" value={form.apiKey} onChange={(e) => setForm({ ...form, apiKey: e.target.value })} />
+              {providers.find((p) => p.value === form.provider)?.url && (
+                <a href={providers.find((p) => p.value === form.provider)?.url} target="_blank" rel="noopener noreferrer"
+                  className="text-[11px] text-primary hover:underline flex items-center gap-0.5 mt-1">
+                  Get API key <ExternalLink className="h-2.5 w-2.5" />
+                </a>
+              )}
+            </div>
+          )}
+          {!needsApiKey && (
+            <p className="text-[11px] text-muted-foreground">Ollama runs locally — no API key needed. Make sure Ollama is running on your machine.</p>
+          )}
+          {needsCustomFields && (
             <>
-              <div><label className={LABEL_CLS}>API URL</label><input className={INPUT_CLS} placeholder="https://api.example.com/v1/chat/completions" value={form.apiUrl} onChange={(e) => setForm({ ...form, apiUrl: e.target.value })} /></div>
-              <div><label className={LABEL_CLS}>Model Name</label><input className={INPUT_CLS} placeholder="e.g., gpt-4" value={form.modelName} onChange={(e) => setForm({ ...form, modelName: e.target.value })} /></div>
+              <div><label className={LABEL_CLS}>API URL</label><input className={INPUT_CLS} placeholder={form.provider === 'ollama' ? 'http://localhost:11434/v1/chat/completions' : 'https://api.example.com/v1/chat/completions'} value={form.apiUrl} onChange={(e) => setForm({ ...form, apiUrl: e.target.value })} /></div>
+              <div><label className={LABEL_CLS}>Model Name</label><input className={INPUT_CLS} placeholder={form.provider === 'ollama' ? 'e.g., llama3.2, mistral, codellama' : 'e.g., gpt-4'} value={form.modelName} onChange={(e) => setForm({ ...form, modelName: e.target.value })} /></div>
             </>
           )}
           <div className="flex gap-2 pt-1">
