@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react'
 import Editor, { Monaco } from '@monaco-editor/react'
 import * as monaco from 'monaco-editor'
+import { useSettingsStore, resolveTheme } from '@/store/settingsStore'
 
 interface MonacoQueryEditorProps {
   value: string
@@ -50,6 +51,8 @@ export const MonacoQueryEditor = ({
   collectionNames = [],
 }: MonacoQueryEditorProps) => {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
+  const theme = useSettingsStore((s) => s.theme)
+  const monacoTheme = resolveTheme(theme) === 'light' ? 'light' : 'vs-dark'
 
   // Keep refs updated for completion provider
   useEffect(() => {
@@ -146,7 +149,7 @@ export const MonacoQueryEditor = ({
       value={value}
       onChange={v => v !== undefined && onChange(v)}
       onMount={handleEditorDidMount}
-      theme="vs-dark"
+      theme={monacoTheme}
       options={{
         minimap: { enabled: false },
         fontSize: 13,

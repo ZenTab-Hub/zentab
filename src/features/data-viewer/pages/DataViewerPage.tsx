@@ -6,6 +6,7 @@ import { DiffViewer } from '../components/DiffViewer'
 import { BatchOperations } from '../components/BatchOperations'
 import { RedisKeyViewer } from '../components/RedisKeyViewer'
 import { KafkaMessageViewer } from '../components/KafkaMessageViewer'
+import { SQLRowEditorModal } from '../components/SQLRowEditorModal'
 import { JSONTreeView } from '@/components/common/JSONTreeView'
 import { useConnectionStore } from '@/store/connectionStore'
 import { useAISettingsStore } from '@/store/aiSettingsStore'
@@ -560,22 +561,40 @@ export const DataViewerPage = () => {
       </div>
 
       {/* Document Editor Modal */}
-      {editDoc && (
+      {editDoc && dbType === 'postgresql' && activeConnectionId && selectedDatabase && selectedCollection && (
+        <SQLRowEditorModal
+          mode={editDoc.mode}
+          doc={editDoc.doc}
+          connectionId={activeConnectionId}
+          database={selectedDatabase}
+          table={selectedCollection}
+          onSave={(data) => {
+            if (editDoc.mode === 'edit') {
+              handleUpdate(editDoc.doc, data)
+            } else {
+              insertDocument(data)
+            }
+            setEditDoc(null)
+          }}
+          onClose={() => setEditDoc(null)}
+        />
+      )}
+      {editDoc && dbType !== 'postgresql' && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60" onClick={() => setEditDoc(null)} onKeyDown={(e) => { if (e.key === 'Escape') setEditDoc(null) }}>
-          <div className="bg-[#1e1e2e] border border-[#333] rounded-lg w-[700px] max-h-[80vh] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[#333]">
-              <h3 className="text-sm font-semibold text-[#e0e0e0]">{editDoc.mode === 'edit' ? 'Edit Document' : 'Insert Document'}</h3>
-              <button onClick={() => setEditDoc(null)} className="text-[#888] hover:text-white"><X className="h-4 w-4" /></button>
+          <div className="bg-background border border-border rounded-lg w-[700px] max-h-[80vh] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <h3 className="text-sm font-semibold">{editDoc.mode === 'edit' ? 'Edit Document' : 'Insert Document'}</h3>
+              <button onClick={() => setEditDoc(null)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
             </div>
             <div className="flex-1 overflow-hidden p-4">
               <textarea
-                className="w-full h-[400px] bg-[#0d1117] border border-[#333] rounded-md p-3 text-xs font-mono text-[#e0e0e0] resize-none focus:outline-none focus:border-blue-500"
+                className="w-full h-[400px] bg-accent/30 border border-border rounded-md p-3 text-xs font-mono text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-ring"
                 defaultValue={JSON.stringify(editDoc.doc, null, 2)}
                 id="doc-editor-textarea"
               />
             </div>
-            <div className="flex justify-end gap-2 px-4 py-3 border-t border-[#333]">
-              <button onClick={() => setEditDoc(null)} className="px-3 py-1.5 text-xs rounded-md border border-[#444] text-[#aaa] hover:bg-[#333]">Cancel</button>
+            <div className="flex justify-end gap-2 px-4 py-3 border-t border-border">
+              <button onClick={() => setEditDoc(null)} className="px-3 py-1.5 text-xs rounded-md border border-input text-muted-foreground hover:bg-accent">Cancel</button>
               <button
                 onClick={() => {
                   const el = document.getElementById('doc-editor-textarea') as HTMLTextAreaElement
@@ -583,7 +602,6 @@ export const DataViewerPage = () => {
                   try {
                     const parsed = JSON.parse(el.value)
                     if (editDoc.mode === 'edit') {
-                      // Find original doc to get _id for update
                       const origDoc = documents.find(d => {
                         const editId = editDoc.doc._id
                         const dId = d._id
@@ -602,7 +620,7 @@ export const DataViewerPage = () => {
                     tt.error('Invalid JSON')
                   }
                 }}
-                className="px-3 py-1.5 text-xs rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                className="px-3 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {editDoc.mode === 'edit' ? 'Update' : 'Insert'}
               </button>

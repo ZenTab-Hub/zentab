@@ -40,7 +40,7 @@ const navigation = [
   { name: 'Connections', href: '/', icon: Database },
   { name: 'Query Editor', href: '/query-editor', icon: Search },
   { name: 'Data Viewer', href: '/data-viewer', icon: Table },
-  { name: 'Aggregation', href: '/aggregation', icon: GitBranch },
+  { name: 'Aggregation', href: '/aggregation', icon: GitBranch, dbType: 'mongodb' as const },
   { name: 'Schema', href: '/schema-analyzer', icon: FileJson },
   { name: 'Import/Export', href: '/import-export', icon: Upload },
   { name: 'Monitoring', href: '/monitoring', icon: Activity },

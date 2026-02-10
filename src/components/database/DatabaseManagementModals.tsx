@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, AlertTriangle } from 'lucide-react'
+import { X, AlertTriangle, Plus, Trash2 } from 'lucide-react'
 
 function ModalShell({ isOpen, onClose, title, children, width = 'max-w-md' }: {
   isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode; width?: string
@@ -127,6 +127,29 @@ export function RenameModal({ isOpen, onClose, onSubmit, itemType, currentName }
   )
 }
 
+interface PgColumnDef {
+  name: string; type: string; primaryKey: boolean; nullable: boolean; defaultValue: string
+}
+
+const emptyCol = (): PgColumnDef => ({ name: '', type: 'INTEGER', primaryKey: false, nullable: true, defaultValue: '' })
+
+/* ── Toggle pill ── */
+function Toggle({ checked, onChange, label, color = 'primary' }: {
+  checked: boolean; onChange: (v: boolean) => void; label: string; color?: 'primary' | 'amber' | 'emerald'
+}) {
+  const colors = {
+    primary: checked ? 'bg-primary text-primary-foreground' : 'bg-accent text-muted-foreground',
+    amber: checked ? 'bg-amber-500/15 text-amber-600 border-amber-500/30' : 'bg-accent text-muted-foreground',
+    emerald: checked ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' : 'bg-accent text-muted-foreground',
+  }
+  return (
+    <button type="button" onClick={() => onChange(!checked)}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border border-transparent transition-all ${colors[color]}`}>
+      {label}
+    </button>
+  )
+}
+
 export function CreateCollectionModal({ isOpen, onClose, onSubmit, dbType }: {
   isOpen: boolean; onClose: () => void
   onSubmit: (name: string, options?: any) => Promise<void>
@@ -136,21 +159,39 @@ export function CreateCollectionModal({ isOpen, onClose, onSubmit, dbType }: {
   const [loading, setLoading] = useState(false)
   const [capped, setCapped] = useState(false)
   const [size, setSize] = useState('1048576')
+  const [columns, setColumns] = useState<PgColumnDef[]>([{ ...emptyCol(), name: 'id', type: 'SERIAL', primaryKey: true, nullable: false }])
   const label = dbType === 'kafka' ? 'Topic' : dbType === 'mongodb' ? 'Collection' : 'Table'
+  const isPg = dbType === 'postgresql'
+
+  const updateCol = (i: number, patch: Partial<PgColumnDef>) => {
+    setColumns(prev => prev.map((c, idx) => idx === i ? { ...c, ...patch } : c))
+  }
+  const removeCol = (i: number) => setColumns(prev => prev.filter((_, idx) => idx !== i))
+  const addCol = () => setColumns(prev => [...prev, emptyCol()])
+
   const go = async () => {
     if (!name.trim()) return
     setLoading(true)
-    const opts = dbType === 'mongodb' && capped ? { capped: true, size: parseInt(size) || 1048576 } : undefined
-    try { await onSubmit(name.trim(), opts); setName(''); setCapped(false); onClose() } catch {} finally { setLoading(false) }
+    let opts: any
+    if (dbType === 'mongodb' && capped) opts = { capped: true, size: parseInt(size) || 1048576 }
+    if (isPg) {
+      const validCols = columns.filter(c => c.name.trim())
+      if (validCols.length === 0) { setLoading(false); return }
+      opts = { columns: validCols.map(c => ({ name: c.name.trim(), type: c.type, primaryKey: c.primaryKey, nullable: c.nullable, defaultValue: c.defaultValue || undefined })) }
+    }
+    try { await onSubmit(name.trim(), opts); setName(''); setCapped(false); setColumns([{ ...emptyCol(), name: 'id', type: 'SERIAL', primaryKey: true, nullable: false }]); onClose() } catch {} finally { setLoading(false) }
   }
+
+  const hasValidCols = !isPg || columns.some(c => c.name.trim())
+
   return (
-    <ModalShell isOpen={isOpen} onClose={onClose} title={`Create ${label}`}>
-      <div className="space-y-3">
+    <ModalShell isOpen={isOpen} onClose={onClose} title={`Create ${label}`} width={isPg ? 'max-w-2xl' : 'max-w-md'}>
+      <div className="space-y-4">
         <div>
           <label className="text-xs font-medium mb-1 block">{label} Name</label>
           <input className={IC} value={name} onChange={e => setName(e.target.value)}
             placeholder={dbType === 'mongodb' ? 'my_collection' : dbType === 'kafka' ? 'my_topic' : 'my_table'}
-            autoFocus onKeyDown={e => e.key === 'Enter' && go()} />
+            autoFocus onKeyDown={e => !isPg && e.key === 'Enter' && go()} />
         </div>
         {dbType === 'mongodb' && (
           <div className="space-y-2">
@@ -168,10 +209,94 @@ export function CreateCollectionModal({ isOpen, onClose, onSubmit, dbType }: {
             )}
           </div>
         )}
-        <div className="flex justify-end gap-2 pt-2">
+        {isPg && (
+          <div className="space-y-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold">Columns</span>
+              <span className="text-[10px] text-muted-foreground bg-accent px-1.5 py-0.5 rounded-full">{columns.length}</span>
+            </div>
+
+            {/* Column header */}
+            <div className="grid grid-cols-[28px_1fr_140px_56px_56px_90px_28px] gap-1.5 px-1 text-[10px] font-medium text-muted-foreground">
+              <span>#</span><span>Name</span><span>Type</span><span className="text-center">PK</span><span className="text-center">NN</span><span>Default</span><span />
+            </div>
+
+            <div className="max-h-[300px] overflow-y-auto space-y-1 pr-0.5">
+              {columns.map((col, i) => (
+                <div key={i} className="group grid grid-cols-[28px_1fr_140px_56px_56px_90px_28px] gap-1.5 items-center rounded-md px-1 py-1.5 transition-colors hover:bg-accent/40">
+                  {/* # */}
+                  <span className="text-[10px] font-semibold text-muted-foreground text-center">{i + 1}</span>
+                  {/* Name */}
+                  <input className={IC} value={col.name} onChange={e => updateCol(i, { name: e.target.value })} placeholder="column_name" />
+                  {/* Type */}
+                  <select className={IC} value={col.type} onChange={e => updateCol(i, { type: e.target.value })}>
+                    <optgroup label="Numeric">
+                      <option value="INTEGER">INTEGER</option>
+                      <option value="BIGINT">BIGINT</option>
+                      <option value="SMALLINT">SMALLINT</option>
+                      <option value="SERIAL">SERIAL</option>
+                      <option value="BIGSERIAL">BIGSERIAL</option>
+                      <option value="NUMERIC">NUMERIC</option>
+                      <option value="DECIMAL">DECIMAL</option>
+                      <option value="REAL">REAL</option>
+                      <option value="DOUBLE PRECISION">DOUBLE PRECISION</option>
+                    </optgroup>
+                    <optgroup label="Text">
+                      <option value="VARCHAR(255)">VARCHAR(255)</option>
+                      <option value="TEXT">TEXT</option>
+                      <option value="CHAR(1)">CHAR(1)</option>
+                    </optgroup>
+                    <optgroup label="Boolean">
+                      <option value="BOOLEAN">BOOLEAN</option>
+                    </optgroup>
+                    <optgroup label="Date / Time">
+                      <option value="DATE">DATE</option>
+                      <option value="TIMESTAMP">TIMESTAMP</option>
+                      <option value="TIMESTAMPTZ">TIMESTAMPTZ</option>
+                      <option value="TIME">TIME</option>
+                      <option value="TIMETZ">TIMETZ</option>
+                    </optgroup>
+                    <optgroup label="JSON">
+                      <option value="JSON">JSON</option>
+                      <option value="JSONB">JSONB</option>
+                    </optgroup>
+                    <optgroup label="Other">
+                      <option value="UUID">UUID</option>
+                      <option value="BYTEA">BYTEA</option>
+                    </optgroup>
+                  </select>
+                  {/* PK */}
+                  <div className="flex justify-center">
+                    <Toggle checked={col.primaryKey} onChange={v => updateCol(i, { primaryKey: v })} label="🔑" color="amber" />
+                  </div>
+                  {/* NOT NULL */}
+                  <div className="flex justify-center">
+                    <Toggle checked={!col.nullable} onChange={v => updateCol(i, { nullable: !v })} label="NN" color="emerald" />
+                  </div>
+                  {/* Default */}
+                  <input className="w-full h-7 rounded-md border border-input bg-background px-2 text-[11px] focus:outline-none focus:ring-1 focus:ring-ring"
+                    value={col.defaultValue} onChange={e => updateCol(i, { defaultValue: e.target.value })} placeholder="—" />
+                  {/* Remove */}
+                  <button type="button" onClick={() => removeCol(i)} disabled={columns.length <= 1}
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-destructive/15 text-muted-foreground hover:text-destructive transition-all disabled:hidden">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Add column */}
+            <button type="button" onClick={addCol}
+              className="w-full flex items-center justify-center gap-1.5 py-2 rounded-md border border-dashed border-border text-[11px] font-medium text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all">
+              <Plus className="h-3.5 w-3.5" />
+              Add Column
+            </button>
+          </div>
+        )}
+        <div className="flex justify-end gap-2 pt-1">
           <button className={BS} onClick={onClose}>Cancel</button>
-          <button className={BP} onClick={go} disabled={!name.trim() || loading}>
-            {loading ? 'Creating...' : 'Create'}
+          <button className={BP} onClick={go} disabled={!name.trim() || !hasValidCols || loading}>
+            {loading ? 'Creating...' : `Create ${label}`}
           </button>
         </div>
       </div>

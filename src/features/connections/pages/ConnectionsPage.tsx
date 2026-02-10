@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Plus, Download, Upload } from 'lucide-react'
 import { ConnectionForm } from '../components/ConnectionForm'
 import { ConnectionList } from '../components/ConnectionList'
@@ -31,7 +31,7 @@ export const ConnectionsPage = () => {
     }
   }
 
-  const handleSubmit = async (data: any) => {
+  const handleSubmit = useCallback(async (data: any) => {
     try {
       setLoading(true)
 
@@ -78,7 +78,7 @@ export const ConnectionsPage = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [editingConnection, addConnection, updateConnection, t])
 
   const buildConnectionString = (connection: DatabaseConnection): string => {
     // Use connection string directly if provided
@@ -201,10 +201,10 @@ export const ConnectionsPage = () => {
     })
   }
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     setShowForm(false)
     setEditingConnection(null)
-  }
+  }, [])
 
   const handleExport = async () => {
     try {

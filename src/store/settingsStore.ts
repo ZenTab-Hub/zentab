@@ -59,7 +59,7 @@ const DEFAULT_GENERAL: GeneralSettings = {
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
-  theme: 'dark',
+  theme: 'light',
   uiFontSize: 'default',
   editor: DEFAULT_EDITOR,
   general: DEFAULT_GENERAL,

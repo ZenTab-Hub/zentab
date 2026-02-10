@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, memo } from 'react'
 import { Trash2, Edit, Power, PowerOff, Database, Server, Layers, Copy } from 'lucide-react'
 import { DatabaseIcon, getDatabaseTypeName, getDatabaseTypeColor } from '@/components/common/DatabaseIcon'
 import type { DatabaseConnection, DatabaseType } from '@/types'
@@ -21,7 +21,7 @@ interface ConnectionListProps {
 }
 
 /* ── Connection Card ───────────────────────────────────────────── */
-const ConnectionCard = ({ connection, isActive, onConnect, onDisconnect, onEdit, onDelete, onClone }: {
+const ConnectionCard = memo(({ connection, isActive, onConnect, onDisconnect, onEdit, onDelete, onClone }: {
   connection: DatabaseConnection
   isActive: boolean
   onConnect: (c: DatabaseConnection) => void
@@ -112,7 +112,8 @@ const ConnectionCard = ({ connection, isActive, onConnect, onDisconnect, onEdit,
       </div>
     </div>
   )
-}
+})
+ConnectionCard.displayName = 'ConnectionCard'
 
 /* ── Main list ─────────────────────────────────────────────────── */
 export const ConnectionList = ({

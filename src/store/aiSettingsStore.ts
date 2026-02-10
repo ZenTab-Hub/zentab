@@ -12,14 +12,32 @@ export interface AIModel {
   modelName?: string // For custom providers
 }
 
+export interface AIAutoApplySettings {
+  enabled: boolean       // Master toggle
+  allowRead: boolean     // find, aggregate, count, etc.
+  allowCreate: boolean   // insert, insertMany
+  allowUpdate: boolean   // update, updateMany
+  allowDelete: boolean   // delete, deleteMany, drop
+}
+
+const DEFAULT_AUTO_APPLY: AIAutoApplySettings = {
+  enabled: false,
+  allowRead: true,
+  allowCreate: false,
+  allowUpdate: false,
+  allowDelete: false,
+}
+
 interface AISettingsState {
   models: AIModel[]
   selectedModelId: string | null
+  autoApply: AIAutoApplySettings
   addModel: (model: Omit<AIModel, 'id'>) => void
   updateModel: (id: string, model: Partial<AIModel>) => void
   deleteModel: (id: string) => void
   selectModel: (id: string) => void
   getSelectedModel: () => AIModel | null
+  setAutoApply: <K extends keyof AIAutoApplySettings>(key: K, value: AIAutoApplySettings[K]) => void
 }
 
 export const useAISettingsStore = create<AISettingsState>()(
@@ -27,6 +45,7 @@ export const useAISettingsStore = create<AISettingsState>()(
     (set, get) => ({
       models: [],
       selectedModelId: null,
+      autoApply: DEFAULT_AUTO_APPLY,
 
       addModel: (model) => {
         const newModel: AIModel = {
@@ -60,6 +79,12 @@ export const useAISettingsStore = create<AISettingsState>()(
       getSelectedModel: () => {
         const state = get()
         return state.models.find((m) => m.id === state.selectedModelId) || null
+      },
+
+      setAutoApply: (key, value) => {
+        set((state) => ({
+          autoApply: { ...state.autoApply, [key]: value },
+        }))
       },
     }),
     {

@@ -232,7 +232,7 @@ export const QueryEditorPage = () => {
   return (
     <div className="flex h-full flex-col">
       {/* Tab Bar */}
-      <div className="flex items-center bg-[#1a1a2e] min-h-[36px] border-b border-border/60">
+      <div className="flex items-center bg-muted/50 min-h-[36px] border-b border-border">
         <div className="flex-1 flex items-center overflow-x-auto scrollbar-none gap-px pl-1 pt-1">
           {tabs.map(tab => {
             const isActive = tab.id === activeTabId
@@ -243,8 +243,8 @@ export const QueryEditorPage = () => {
                 onDoubleClick={() => { setRenamingTabId(tab.id); setRenameValue(tab.name) }}
                 className={`group relative flex items-center gap-1.5 px-3.5 py-[7px] text-[11px] font-medium cursor-pointer min-w-[110px] max-w-[200px] transition-all rounded-t-md ${
                   isActive
-                    ? 'bg-background text-foreground shadow-[0_-1px_4px_rgba(0,0,0,0.15)] border border-border/60 border-b-transparent z-10'
-                    : 'text-muted-foreground/70 hover:text-muted-foreground hover:bg-muted/40'
+                    ? 'bg-background text-foreground border border-border border-b-transparent z-10'
+                    : 'text-muted-foreground/70 hover:text-muted-foreground hover:bg-accent/60'
                 }`}
               >
                 {isActive && <span className="absolute top-0 left-2 right-2 h-[2px] bg-primary rounded-b" />}

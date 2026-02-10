@@ -2,10 +2,10 @@ import { useState, useCallback, useEffect } from 'react'
 import {
   X, Sun, Moon, Monitor, Plus, Trash2, ExternalLink,
   Palette, Bot, Code2, Settings2, Info, ShieldCheck, Download,
-  RefreshCw, CheckCircle2, AlertCircle, Loader2,
+  RefreshCw, CheckCircle2, AlertCircle, Loader2, Zap, AlertTriangle,
 } from 'lucide-react'
 import { useSettingsStore, type ThemeMode, type FontSize } from '@/store/settingsStore'
-import { useAISettingsStore, type AIProvider } from '@/store/aiSettingsStore'
+import { useAISettingsStore, type AIProvider, type AIAutoApplySettings } from '@/store/aiSettingsStore'
 import { useSecurityStore } from '@/store/securityStore'
 import { useToast } from '@/components/common/Toast'
 
@@ -167,7 +167,7 @@ function GeneralTab() {
 
 /* ─── AI Models Tab ─── */
 function AIModelsTab() {
-  const { models, selectedModelId, addModel, deleteModel, selectModel } = useAISettingsStore()
+  const { models, selectedModelId, addModel, deleteModel, selectModel, autoApply, setAutoApply } = useAISettingsStore()
   const tt = useToast()
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ name: '', provider: 'deepseek' as AIProvider, apiKey: '', apiUrl: '', modelName: '' })
@@ -251,6 +251,54 @@ function AIModelsTab() {
           </div>
         </div>
       )}
+
+      {/* ─── Auto Apply Query ─── */}
+      <div className={`${SECTION_CLS} mt-5`}>
+        <h3 className={SECTION_TITLE_CLS}>
+          <span className="flex items-center gap-1.5"><Zap className="h-3 w-3" /> Auto Apply Query</span>
+        </h3>
+        <p className="text-[11px] text-muted-foreground mb-3">
+          When enabled, AI-generated queries will be automatically applied to the editor. Control which operation types are allowed.
+        </p>
+
+        {/* Master toggle */}
+        <div className={ROW_CLS}>
+          <div>
+            <p className={LABEL_CLS}>Enable Auto Apply</p>
+            <p className={DESC_CLS}>Automatically apply AI-generated queries</p>
+          </div>
+          <button onClick={() => setAutoApply('enabled', !autoApply.enabled)}
+            className={`relative w-9 h-5 rounded-full transition-colors ${autoApply.enabled ? 'bg-primary' : 'bg-muted-foreground/30'}`}>
+            <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform ${autoApply.enabled ? 'translate-x-4' : ''}`} />
+          </button>
+        </div>
+
+        {/* Granular toggles — only shown when master is enabled */}
+        {autoApply.enabled && (
+          <div className="mt-1">
+            {([
+              ['allowRead', 'Read Operations', 'find, aggregate, count, explain', false],
+              ['allowCreate', 'Create Operations', 'insert, insertMany', false],
+              ['allowUpdate', 'Update Operations', 'update, updateMany, replaceOne', true],
+              ['allowDelete', 'Delete Operations', 'delete, deleteMany, drop', true],
+            ] as const).map(([key, label, desc, isDangerous]) => (
+              <div key={key} className={ROW_CLS}>
+                <div className="flex items-center gap-2">
+                  {isDangerous && <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />}
+                  <div>
+                    <p className={LABEL_CLS}>{label}</p>
+                    <p className={DESC_CLS}>{desc}</p>
+                  </div>
+                </div>
+                <button onClick={() => setAutoApply(key, !autoApply[key])}
+                  className={`relative w-9 h-5 rounded-full transition-colors ${autoApply[key] ? (isDangerous ? 'bg-amber-500' : 'bg-primary') : 'bg-muted-foreground/30'}`}>
+                  <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform ${autoApply[key] ? 'translate-x-4' : ''}`} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

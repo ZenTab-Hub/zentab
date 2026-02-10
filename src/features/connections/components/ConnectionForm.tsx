@@ -1,4 +1,4 @@
-import { useState, useCallback, memo, startTransition } from 'react'
+import { useState, useCallback, useMemo, memo, startTransition } from 'react'
 import { X, Database, Server, HardDrive, Layers, Radio, Shield } from 'lucide-react'
 import type { DatabaseType } from '@/types'
 
@@ -109,7 +109,7 @@ export const ConnectionForm = ({ onSubmit, onCancel, initialData }: ConnectionFo
     setSSH(prev => prev[key] === value ? prev : { ...prev, [key]: value })
   }, [])
 
-  const cfg = DB_CONFIGS[dbType]
+  const cfg = useMemo(() => DB_CONFIGS[dbType], [dbType])
   const hasHostPort = dbType !== 'sqlite'
   const hasCreds = dbType !== 'sqlite'
   const hasAuthDb = dbType === 'mongodb'
@@ -137,7 +137,10 @@ export const ConnectionForm = ({ onSubmit, onCancel, initialData }: ConnectionFo
     setFields(prev => prev[key] === value ? prev : { ...prev, [key]: value })
   }, [])
 
-  const sshData = ssh.enabled ? { sshEnabled: true, sshHost: ssh.host, sshPort: ssh.port, sshUsername: ssh.username, sshPassword: ssh.password, sshPrivateKey: ssh.privateKey } : { sshEnabled: false }
+  const sshData = useMemo(() => ssh.enabled
+    ? { sshEnabled: true, sshHost: ssh.host, sshPort: ssh.port, sshUsername: ssh.username, sshPassword: ssh.password, sshPrivateKey: ssh.privateKey }
+    : { sshEnabled: false as const },
+    [ssh.enabled, ssh.host, ssh.port, ssh.username, ssh.password, ssh.privateKey])
 
   const handleParamSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
@@ -154,13 +157,13 @@ export const ConnectionForm = ({ onSubmit, onCancel, initialData }: ConnectionFo
   }, [fields.name, connStr, dbType, cfg.defaultPort, onSubmit, sshData])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onCancel}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onCancel}>
       <div className="w-full max-w-lg rounded-xl bg-card border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
           <div className="flex items-center gap-2.5">
             <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${cfg.bgColor}`}>
-              {(() => { const Icon = cfg.icon; return <Icon className={`h-3.5 w-3.5 ${cfg.color}`} /> })()}
+              <cfg.icon className={`h-3.5 w-3.5 ${cfg.color}`} />
             </div>
             <div>
               <h2 className="text-sm font-semibold">{initialData ? 'Edit Connection' : 'New Connection'}</h2>
