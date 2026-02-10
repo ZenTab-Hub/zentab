@@ -51,11 +51,6 @@
 
 ![AI Settings](public/example/ai-setting.png)
 
-### Real-time Monitoring
-> Live server stats dashboard for MongoDB, PostgreSQL, and Redis — connections, memory, operations, replication, and more.
-
-![Monitoring](public/example/monitoring.png)
-
 ---
 
 ## ✨ Features
