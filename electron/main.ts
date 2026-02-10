@@ -1,3 +1,4 @@
+// nativeImage is imported for macOS dock icon setup (used conditionally below)
 import { app, BrowserWindow, ipcMain, dialog, nativeImage } from 'electron'
 import fs from 'fs'
 import path from 'path'

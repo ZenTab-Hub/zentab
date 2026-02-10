@@ -458,7 +458,7 @@ export const saveAIModel = (model: AIModel) => {
 
 export const getAIModels = (): AIModel[] => {
   const db = getStorage()
-  const stmt = db.prepare('SELECT * FROM ai_models ORDER BY updatedAt DESC')
+  const stmt = db.prepare('SELECT * FROM ai_models ORDER BY COALESCE(updatedAt, createdAt, \'\') DESC')
   const rows = stmt.all() as Array<Omit<AIModel, 'apiKey'> & { apiKey: string | null }>
 
   // Decrypt API keys after reading

@@ -32,7 +32,9 @@ function App() {
   // Load AI models and settings from secure storage on mount
   useEffect(() => {
     if (!initialized) {
-      loadModels().then(() => loadSettings())
+      loadModels()
+        .then(() => loadSettings())
+        .catch(err => console.error('Failed to initialize AI settings:', err))
     }
   }, [initialized, loadModels, loadSettings])
 

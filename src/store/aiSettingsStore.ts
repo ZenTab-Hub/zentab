@@ -75,6 +75,8 @@ export const useAISettingsStore = create<AISettingsState>((set, get) => ({
       id: Date.now().toString(),
     }
     
+    // Note: There's a potential race condition if multiple models are added concurrently
+    // In practice, this is unlikely since models are added through UI interactions
     const isFirstModel = get().models.length === 0
     
     try {
