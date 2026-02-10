@@ -11,6 +11,7 @@ import { MonitoringPage } from '@/features/monitoring/pages/MonitoringPage'
 import { RedisToolsPage } from '@/features/redis-tools/pages/RedisToolsPage'
 import { useSettingsStore, resolveTheme, uiFontSizePx } from '@/store/settingsStore'
 import { useSecurityStore } from '@/store/securityStore'
+import { useAISettingsStore } from '@/store/aiSettingsStore'
 import { LockScreen } from '@/components/security/LockScreen'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { ToastProvider } from '@/components/common/Toast'
@@ -19,6 +20,7 @@ function App() {
   const theme = useSettingsStore((s) => s.theme)
   const uiFontSize = useSettingsStore((s) => s.uiFontSize)
   const { twoFAEnabled, isLocked, updateActivity, checkIdle, lock, setTwoFAEnabled } = useSecurityStore()
+  const { loadModels, loadSettings, initialized } = useAISettingsStore()
 
   // Load 2FA status from backend on mount
   useEffect(() => {
@@ -26,6 +28,13 @@ function App() {
       if (res.success) setTwoFAEnabled(!!res.enabled)
     })
   }, [setTwoFAEnabled])
+
+  // Load AI models and settings from secure storage on mount
+  useEffect(() => {
+    if (!initialized) {
+      loadModels().then(() => loadSettings())
+    }
+  }, [initialized, loadModels, loadSettings])
 
   // Sync theme class on <html> element
   useEffect(() => {

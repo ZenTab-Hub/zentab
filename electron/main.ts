@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import fs from 'fs'
 import path from 'path'
-import { initStorage, migratePasswords, saveConnection, getConnections, deleteConnection, saveQuery, getSavedQueries, deleteSavedQuery, addQueryHistory, getQueryHistory, getAppSetting, setAppSetting, deleteAppSetting, getQueryTemplates, saveQueryTemplate, deleteQueryTemplate, seedBuiltInTemplates } from './storage'
+import { initStorage, migratePasswords, saveConnection, getConnections, deleteConnection, saveQuery, getSavedQueries, deleteSavedQuery, addQueryHistory, getQueryHistory, getAppSetting, setAppSetting, deleteAppSetting, getQueryTemplates, saveQueryTemplate, deleteQueryTemplate, seedBuiltInTemplates, saveAIModel, getAIModels, deleteAIModel, getAISetting, setAISetting } from './storage'
 import * as OTPAuth from 'otpauth'
 import QRCode from 'qrcode'
 import { connectToMongoDB, disconnectFromMongoDB, pingMongoDB, listDatabases, listCollections, executeQuery, insertDocument, updateDocument, deleteDocument, updateMany, deleteMany, countDocuments, aggregate, getCollectionStats, mongoCreateDatabase, mongoDropDatabase, mongoCreateCollection, mongoDropCollection, mongoRenameCollection, mongoListIndexes, mongoCreateIndex, mongoDropIndex, explainQuery, getServerStatus, disconnectAll as disconnectAllMongo } from './mongodb'
@@ -202,6 +202,29 @@ ipcMain.handle('storage:saveQueryTemplate', (_event, template) => {
 
 ipcMain.handle('storage:deleteQueryTemplate', (_event, id) => {
   deleteQueryTemplate(id)
+  return { success: true }
+})
+
+// AI Model Storage
+ipcMain.handle('storage:saveAIModel', (_event, model) => {
+  return saveAIModel(model)
+})
+
+ipcMain.handle('storage:getAIModels', () => {
+  return getAIModels()
+})
+
+ipcMain.handle('storage:deleteAIModel', (_event, id) => {
+  deleteAIModel(id)
+  return { success: true }
+})
+
+ipcMain.handle('storage:getAISetting', (_event, key) => {
+  return getAISetting(key)
+})
+
+ipcMain.handle('storage:setAISetting', (_event, key, value) => {
+  setAISetting(key, value)
   return { success: true }
 })
 
