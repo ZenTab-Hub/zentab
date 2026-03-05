@@ -1,3 +1,5 @@
+import DOMPurify from 'dompurify'
+
 /** Escape HTML entities to prevent XSS */
 export function escapeHtml(str: string): string {
   return str
@@ -9,20 +11,18 @@ export function escapeHtml(str: string): string {
 }
 
 /** Strip non-alphanumeric chars from attribute values */
-export function escapeAttr(str: string): string {
+function escapeAttr(str: string): string {
   return str.replace(/[^a-zA-Z0-9-_]/g, '')
 }
 
-/** Strip any HTML tags that aren't in the safe allowlist */
-export function sanitizeHtml(html: string): string {
-  const allowedTags = /^<\/?(pre|code|strong|em|h[2-4]|li|br)\b[^>]*>$/i
-  return html.replace(/<\/?[a-z][^>]*>/gi, (tag) =>
-    allowedTags.test(tag) ? tag : escapeHtml(tag))
+const purifyConfig = {
+  ALLOWED_TAGS: ['pre', 'code', 'strong', 'em', 'h2', 'h3', 'h4', 'li', 'br', 'ul', 'ol', 'p', 'span', 'div'],
+  ALLOWED_ATTR: ['class'],
 }
 
-/** Convert simple Markdown to sanitized HTML */
+/** Convert simple Markdown to sanitized HTML (via DOMPurify) */
 export function renderMarkdown(text: string): string {
-  return sanitizeHtml(text
+  const raw = text
     // Code blocks with language
     .replace(/```(\w+)?\n([\s\S]*?)```/g, (_m, lang, code) =>
       `<pre class="ai-code-block"><code class="language-${escapeAttr(lang || '')}">${escapeHtml(code.trim())}</code></pre>`)
@@ -41,5 +41,7 @@ export function renderMarkdown(text: string): string {
     .replace(/^\d+\. (.+)$/gm, (_m, t) => `<li class="ml-3">${escapeHtml(t)}</li>`)
     // Line breaks
     .replace(/\n\n/g, '<br/><br/>')
-    .replace(/\n/g, '<br/>'))
+    .replace(/\n/g, '<br/>')
+
+  return DOMPurify.sanitize(raw, purifyConfig)
 }

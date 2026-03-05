@@ -434,13 +434,13 @@ ${JSON.stringify(explainResult.explain, null, 2)}`
           </div>
           <div className="rounded-lg border bg-card max-h-[45%] overflow-auto shadow-sm">
             <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Results {activeTab.results.length > 0 && <span className="text-foreground ml-1">({activeTab.results.length})</span>}</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Results {activeTab.results && activeTab.results.length > 0 && <span className="text-foreground ml-1">({activeTab.results.length})</span>}</span>
               {activeTab.executionTime !== undefined && (
                 <span className="text-[10px] text-muted-foreground font-mono">{activeTab.executionTime}ms</span>
               )}
             </div>
             <div className="p-2">
-              <QueryResults results={activeTab.results} executionTime={activeTab.executionTime} error={activeTab.error} />
+              <QueryResults results={activeTab.results || []} executionTime={activeTab.executionTime} error={activeTab.error} />
             </div>
           </div>
         </div>

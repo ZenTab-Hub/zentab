@@ -74,7 +74,7 @@ export const MonacoQueryEditor = ({
 
     // MongoDB + schema autocomplete
     monacoInstance.languages.registerCompletionItemProvider('javascript', {
-      provideCompletionItems: (model, position) => {
+      provideCompletionItems: (model: any, position: any) => {
         const word = model.getWordUntilPosition(position)
         const range = { startLineNumber: position.lineNumber, endLineNumber: position.lineNumber, startColumn: word.startColumn, endColumn: word.endColumn }
         const suggestions: monaco.languages.CompletionItem[] = [
@@ -105,7 +105,7 @@ export const MonacoQueryEditor = ({
 
     // SQL autocomplete
     monacoInstance.languages.registerCompletionItemProvider('sql', {
-      provideCompletionItems: (model, position) => {
+      provideCompletionItems: (model: any, position: any) => {
         const word = model.getWordUntilPosition(position)
         const range = { startLineNumber: position.lineNumber, endLineNumber: position.lineNumber, startColumn: word.startColumn, endColumn: word.endColumn }
         const suggestions: monaco.languages.CompletionItem[] = [
@@ -125,7 +125,7 @@ export const MonacoQueryEditor = ({
 
     // Redis autocomplete
     monacoInstance.languages.registerCompletionItemProvider('plaintext', {
-      provideCompletionItems: (model, position) => {
+      provideCompletionItems: (model: any, position: any) => {
         const word = model.getWordUntilPosition(position)
         const range = { startLineNumber: position.lineNumber, endLineNumber: position.lineNumber, startColumn: word.startColumn, endColumn: word.endColumn }
         return {

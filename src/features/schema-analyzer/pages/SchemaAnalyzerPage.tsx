@@ -75,7 +75,7 @@ export const SchemaAnalyzerPage = () => {
       // Analyze schema
       const schemaMap: { [field: string]: FieldInfo } = {}
 
-      documents.forEach((doc) => {
+      documents.forEach((doc: any) => {
         analyzeDocument(doc, schemaMap, '')
       })
 

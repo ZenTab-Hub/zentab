@@ -194,7 +194,7 @@ export const DataViewerPage = () => {
       let sampleDoc = documents.length > 0 ? documents[0] : undefined
       if (!sampleDoc) {
         const sampleResult = await databaseService.executeQuery(
-          activeConnectionId, selectedDatabase, selectedCollection, {}, { limit: 1 }
+          activeConnectionId!, selectedDatabase!, selectedCollection!, {}, { limit: 1 }
         )
         if (sampleResult.success && sampleResult.documents?.length > 0) {
           sampleDoc = sampleResult.documents[0]
@@ -248,7 +248,7 @@ export const DataViewerPage = () => {
       })
       if (fetchAll) {
         try {
-          const allResult = await databaseService.executeQuery(activeConnectionId, selectedDatabase, selectedCollection, JSON.parse(filter || '{}'), { limit: 50000, sort })
+          const allResult = await databaseService.executeQuery(activeConnectionId!, selectedDatabase!, selectedCollection!, JSON.parse(filter || '{}'), { limit: 50000, sort })
           if (allResult.success && allResult.documents) exportDocs = allResult.documents
         } catch { /* use current page */ }
       }
@@ -273,7 +273,7 @@ export const DataViewerPage = () => {
       })
       if (fetchAll) {
         try {
-          const allResult = await databaseService.executeQuery(activeConnectionId, selectedDatabase, selectedCollection, JSON.parse(filter || '{}'), { limit: 50000, sort })
+          const allResult = await databaseService.executeQuery(activeConnectionId!, selectedDatabase!, selectedCollection!, JSON.parse(filter || '{}'), { limit: 50000, sort })
           if (allResult.success && allResult.documents) exportDocs = allResult.documents
         } catch { /* use current page */ }
       }
