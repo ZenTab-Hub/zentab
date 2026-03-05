@@ -17,8 +17,10 @@ import { setupKafkaHandlers } from './ipc/kafka-handlers'
 import { setupSecurityHandlers } from './ipc/security-handlers'
 import { setupAIHandlers } from './ipc/ai-handlers'
 
-// Disable GPU acceleration for better compatibility
-app.disableHardwareAcceleration()
+// Disable GPU acceleration on Linux for compatibility (keep GPU on macOS/Windows for performance)
+if (process.platform === 'linux') {
+  app.disableHardwareAcceleration()
+}
 
 // Ensure single instance
 const gotTheLock = app.requestSingleInstanceLock()
@@ -141,7 +143,6 @@ app.on('window-all-closed', () => {
 
 // Graceful disconnect all database connections before quitting
 app.on('before-quit', async () => {
-  console.log('[App] Gracefully disconnecting all database connections...')
   await Promise.allSettled([
     disconnectAllMongo().catch(() => {}),
     disconnectAllPg().catch(() => {}),
@@ -149,7 +150,6 @@ app.on('before-quit', async () => {
     disconnectAllKafka().catch(() => {}),
     closeAllSSHTunnels().catch(() => {}),
   ])
-  console.log('[App] All connections closed.')
 })
 
 // ── Register IPC handler modules ──
@@ -205,10 +205,10 @@ ipcMain.handle('fs:writeFile', async (_event, filePath: string, data: string) =>
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error)
+  console.error('Uncaught Exception:', error.message || error)
 })
 
 process.on('unhandledRejection', (error) => {
-  console.error('Unhandled Rejection:', error)
+  console.error('Unhandled Rejection:', error instanceof Error ? error.message : error)
 })
 

@@ -13,26 +13,7 @@ import { storageService } from '@/services/storage.service'
 import { useToast } from '@/components/common/Toast'
 import { aiService } from '@/services/ai.service'
 import { useAISettingsStore } from '@/store/aiSettingsStore'
-
-/* ─── Simple Markdown renderer for AI output ─── */
-const escapeHtml = (str: string): string =>
-  str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-
-const renderMarkdown = (text: string): string => {
-  return text
-    .replace(/```(\w+)?\n([\s\S]*?)```/g, (_m, lang, code) =>
-      `<pre class="ai-code-block"><code class="language-${lang || ''}">${escapeHtml(code.trim())}</code></pre>`)
-    .replace(/`([^`]+)`/g, '<code class="ai-inline-code">$1</code>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/^### (.+)$/gm, '<h4 class="text-xs font-semibold mt-2 mb-1">$1</h4>')
-    .replace(/^## (.+)$/gm, '<h3 class="text-sm font-semibold mt-3 mb-1">$1</h3>')
-    .replace(/^# (.+)$/gm, '<h2 class="text-sm font-bold mt-3 mb-1">$1</h2>')
-    .replace(/^- (.+)$/gm, '<li class="ml-3">• $1</li>')
-    .replace(/^\d+\. (.+)$/gm, '<li class="ml-3">$1</li>')
-    .replace(/\n\n/g, '<br/><br/>')
-    .replace(/\n/g, '<br/>')
-}
+import { renderMarkdown } from '@/utils/markdown'
 
 export const QueryEditorPage = () => {
   const { activeConnectionId, selectedDatabase, selectedCollection, getActiveConnection } = useConnectionStore()
@@ -79,7 +60,7 @@ export const QueryEditorPage = () => {
           const names = (result.collections || result.tables || result.keys || result.topics || []).map((c: any) => typeof c === 'string' ? c : c.name || c.tableName || c)
           setCollectionNames(names)
         }
-      } catch (e) { console.error('Failed to fetch collections:', e) }
+      } catch { /* fetch failed */ }
     }
     fetchCollections()
   }, [activeConnectionId, selectedDatabase, dbType])
@@ -103,7 +84,7 @@ export const QueryEditorPage = () => {
             setSchemaFields([])
           }
         }
-      } catch (e) { console.error('Failed to fetch schema:', e) }
+      } catch { /* fetch failed */ }
     }
     fetchSchema()
   }, [activeConnectionId, selectedDatabase, selectedCollection, dbType])
@@ -341,13 +322,14 @@ ${JSON.stringify(explainResult.explain, null, 2)}`
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, activeConnectionId, selectedDatabase, selectedCollection, tabs.length, activeTabId])
 
   return (
     <div className="flex h-full flex-col">
       {/* Tab Bar */}
-      <div className="flex items-center bg-muted/50 min-h-[36px] border-b border-border">
-        <div className="flex-1 flex items-center overflow-x-auto scrollbar-none gap-px pl-1 pt-1">
+      <div className="flex items-center bg-sidebar min-h-[37px] border-b">
+        <div className="flex-1 flex items-center overflow-x-auto scrollbar-none gap-0.5 pl-1.5 pt-1">
           {tabs.map(tab => {
             const isActive = tab.id === activeTabId
             return (
@@ -355,13 +337,13 @@ ${JSON.stringify(explainResult.explain, null, 2)}`
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 onDoubleClick={() => { setRenamingTabId(tab.id); setRenameValue(tab.name) }}
-                className={`group relative flex items-center gap-1.5 px-3.5 py-[7px] text-[11px] font-medium cursor-pointer min-w-[110px] max-w-[200px] transition-all rounded-t-md ${
+                className={`group relative flex items-center gap-1.5 px-3.5 py-[7px] text-[11px] font-medium cursor-pointer min-w-[110px] max-w-[200px] transition-all duration-150 rounded-t-lg ${
                   isActive
-                    ? 'bg-background text-foreground border border-border border-b-transparent z-10'
-                    : 'text-muted-foreground/70 hover:text-muted-foreground hover:bg-accent/60'
+                    ? 'bg-background text-foreground border border-border border-b-transparent z-10 shadow-sm'
+                    : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/50'
                 }`}
               >
-                {isActive && <span className="absolute top-0 left-2 right-2 h-[2px] bg-primary rounded-b" />}
+                {isActive && <span className="absolute top-0 left-3 right-3 h-[2px] bg-primary rounded-b" />}
                 {renamingTabId === tab.id ? (
                   <input
                     autoFocus
@@ -375,11 +357,11 @@ ${JSON.stringify(explainResult.explain, null, 2)}`
                 ) : (
                   <>
                     <span className="truncate">{tab.name}</span>
-                    {tab.loading && <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse shrink-0" />}
+                    {tab.loading && <span className="w-2 h-2 rounded-full bg-warning animate-pulse shrink-0" />}
                   </>
                 )}
                 {tabs.length > 1 && (
-                  <button onClick={e => closeTab(tab.id, e)} className="opacity-0 group-hover:opacity-100 shrink-0 hover:text-red-400 transition-opacity ml-auto">
+                  <button onClick={e => closeTab(tab.id, e)} className="opacity-0 group-hover:opacity-100 shrink-0 hover:text-destructive transition-all duration-150 ml-auto rounded p-0.5 hover:bg-destructive/10">
                     <X className="h-3 w-3" />
                   </button>
                 )}
@@ -387,47 +369,47 @@ ${JSON.stringify(explainResult.explain, null, 2)}`
             )
           })}
         </div>
-        <button onClick={addTab} className="px-2.5 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0 mr-1" title="New Tab (⌘T)">
+        <button onClick={addTab} className="px-2 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-all duration-150 shrink-0 mr-1.5" title="New Tab (⌘T)">
           <Plus className="h-3.5 w-3.5" />
         </button>
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-1 py-1.5 gap-2">
-        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-          {selectedDatabase && <span className="px-1.5 py-0.5 rounded bg-muted">{selectedDatabase}</span>}
-          {selectedCollection && <><span>›</span><span className="px-1.5 py-0.5 rounded bg-muted">{selectedCollection}</span></>}
+      <div className="flex items-center justify-between px-2 py-1.5 gap-2 border-b border-border/50">
+        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          {selectedDatabase && <span className="px-1.5 py-0.5 rounded-md bg-muted font-medium">{selectedDatabase}</span>}
+          {selectedCollection && <><span className="text-muted-foreground/40">›</span><span className="px-1.5 py-0.5 rounded-md bg-muted font-medium">{selectedCollection}</span></>}
         </div>
         <div className="flex gap-1">
           {isKafka && activeTab && (
-            <div className="flex items-center rounded-md border overflow-hidden">
+            <div className="flex items-center rounded-lg border overflow-hidden">
               <button onClick={() => updateTab(activeTab.id, { kafkaMode: 'consume' })}
-                className={`px-2 py-1 text-[10px] font-medium ${activeTab.kafkaMode === 'consume' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}>Consume</button>
+                className={`px-2.5 py-1 text-[10px] font-medium transition-colors ${activeTab.kafkaMode === 'consume' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}>Consume</button>
               <button onClick={() => updateTab(activeTab.id, { kafkaMode: 'produce' })}
-                className={`px-2 py-1 text-[10px] font-medium ${activeTab.kafkaMode === 'produce' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}>Produce</button>
+                className={`px-2.5 py-1 text-[10px] font-medium transition-colors ${activeTab.kafkaMode === 'produce' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}>Produce</button>
             </div>
           )}
-          <button onClick={() => { setShowTemplates(!showTemplates); setShowHistory(false) }} className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border hover:bg-accent transition-colors">
+          <button onClick={() => { setShowTemplates(!showTemplates); setShowHistory(false) }} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-medium rounded-md border hover:bg-accent transition-all duration-150 active:scale-[0.97]">
             <FileCode2 className="h-3 w-3" /> Templates
           </button>
-          <button onClick={() => { setShowHistory(!showHistory); setShowTemplates(false) }} className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border hover:bg-accent transition-colors">
+          <button onClick={() => { setShowHistory(!showHistory); setShowTemplates(false) }} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-medium rounded-md border hover:bg-accent transition-all duration-150 active:scale-[0.97]">
             <History className="h-3 w-3" /> History
           </button>
-          <button onClick={() => setShowSaveDialog(true)} className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border hover:bg-accent transition-colors">
-            <Save className="h-3 w-3" /> Save (⌘S)
+          <button onClick={() => setShowSaveDialog(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-medium rounded-md border hover:bg-accent transition-all duration-150 active:scale-[0.97]">
+            <Save className="h-3 w-3" /> Save
           </button>
           <button onClick={executeQuery} disabled={activeTab?.loading || !activeConnectionId}
-            className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50">
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-all duration-150 active:scale-[0.97] disabled:opacity-50">
             <Play className="h-3 w-3" /> {activeTab?.loading ? 'Running...' : 'Run (⌘↵)'}
           </button>
           {!isRedis && !isKafka && (
             <>
               <button onClick={handleExplain} disabled={explainLoading || !activeConnectionId}
-                className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border border-orange-500/50 text-orange-400 hover:bg-orange-500/10 transition-colors disabled:opacity-50">
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-medium rounded-md border border-orange-500/30 text-orange-400 hover:bg-orange-500/10 transition-all duration-150 active:scale-[0.97] disabled:opacity-50">
                 <FileSearch className="h-3 w-3" /> {explainLoading ? 'Analyzing...' : 'Explain'}
               </button>
               <button onClick={handleOptimize} disabled={optimizeLoading || !activeConnectionId}
-                className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border border-purple-500/50 text-purple-400 hover:bg-purple-500/10 transition-colors disabled:opacity-50">
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-medium rounded-md border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 transition-all duration-150 active:scale-[0.97] disabled:opacity-50">
                 <Sparkles className="h-3 w-3" /> {optimizeLoading ? 'Optimizing...' : 'AI Optimize'}
               </button>
             </>
@@ -438,70 +420,86 @@ ${JSON.stringify(explainResult.explain, null, 2)}`
       {/* Content */}
       {!activeConnectionId || !selectedDatabase || (!isKafka && !selectedCollection) ? (
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <BookOpen className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+          <div className="text-center animate-fade-in">
+            <BookOpen className="mx-auto h-8 w-8 text-muted-foreground/50 mb-3" />
             <p className="text-xs text-muted-foreground">Select a database and table/collection to start querying</p>
           </div>
         </div>
       ) : activeTab ? (
-        <div className="flex-1 flex flex-col gap-2 overflow-hidden px-1 pb-1">
-          <div className="flex-1 rounded-md border bg-card overflow-hidden min-h-[120px]">
+        <div className="flex-1 flex flex-col gap-2 overflow-hidden px-2 pb-2 pt-1">
+          <div className="flex-1 rounded-lg border bg-card overflow-hidden min-h-[120px] shadow-sm">
             <MonacoQueryEditor value={activeTab.query} onChange={v => updateTab(activeTab.id, { query: v })} height="100%"
               language={isPostgreSQL ? 'sql' : isRedis ? 'redis' : 'javascript'}
               schemaFields={schemaFields} collectionNames={collectionNames} />
           </div>
-          <div className="rounded-md border bg-card p-2 max-h-[45%] overflow-auto">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-semibold">Results {activeTab.results.length > 0 && `(${activeTab.results.length})`}</span>
-              {activeTab.executionTime !== undefined && <span className="text-[10px] text-muted-foreground">{activeTab.executionTime}ms</span>}
+          <div className="rounded-lg border bg-card max-h-[45%] overflow-auto shadow-sm">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Results {activeTab.results.length > 0 && <span className="text-foreground ml-1">({activeTab.results.length})</span>}</span>
+              {activeTab.executionTime !== undefined && (
+                <span className="text-[10px] text-muted-foreground font-mono">{activeTab.executionTime}ms</span>
+              )}
             </div>
-            <QueryResults results={activeTab.results} executionTime={activeTab.executionTime} error={activeTab.error} />
+            <div className="p-2">
+              <QueryResults results={activeTab.results} executionTime={activeTab.executionTime} error={activeTab.error} />
+            </div>
           </div>
         </div>
       ) : null}
 
       {/* History Sidebar */}
       {showHistory && (
-        <div className="fixed right-0 top-0 h-full w-80 bg-background border-l shadow-lg z-50 overflow-auto">
-          <div className="p-3 border-b flex items-center justify-between sticky top-0 bg-background">
-            <span className="text-xs font-semibold">Query History</span>
-            <button onClick={() => setShowHistory(false)} className="p-1 rounded hover:bg-accent"><X className="h-3.5 w-3.5" /></button>
+        <>
+          <div className="fixed inset-0 bg-black/30 z-40" onClick={() => setShowHistory(false)} />
+          <div className="fixed right-0 top-0 h-full w-80 bg-background border-l shadow-2xl z-50 overflow-auto animate-slide-in-right">
+            <div className="p-3 border-b flex items-center justify-between sticky top-0 bg-background/95 backdrop-blur-sm z-10">
+              <div className="flex items-center gap-2">
+                <History className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-semibold">Query History</span>
+              </div>
+              <button onClick={() => setShowHistory(false)} className="p-1.5 rounded-md hover:bg-accent transition-colors"><X className="h-3.5 w-3.5" /></button>
+            </div>
+            <div className="p-3"><QueryHistory onSelectQuery={handleSelectFromHistory} /></div>
           </div>
-          <div className="p-3"><QueryHistory onSelectQuery={handleSelectFromHistory} /></div>
-        </div>
+        </>
       )}
 
       {/* Templates Sidebar */}
       {showTemplates && (
-        <div className="fixed right-0 top-0 h-full w-80 bg-background border-l shadow-lg z-50 overflow-auto">
-          <div className="p-3 border-b flex items-center justify-between sticky top-0 bg-background">
-            <span className="text-xs font-semibold">Query Templates</span>
-            <button onClick={() => setShowTemplates(false)} className="p-1 rounded hover:bg-accent"><X className="h-3.5 w-3.5" /></button>
+        <>
+          <div className="fixed inset-0 bg-black/30 z-40" onClick={() => setShowTemplates(false)} />
+          <div className="fixed right-0 top-0 h-full w-80 bg-background border-l shadow-2xl z-50 overflow-auto animate-slide-in-right">
+            <div className="p-3 border-b flex items-center justify-between sticky top-0 bg-background/95 backdrop-blur-sm z-10">
+              <div className="flex items-center gap-2">
+                <FileCode2 className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-semibold">Query Templates</span>
+              </div>
+              <button onClick={() => setShowTemplates(false)} className="p-1.5 rounded-md hover:bg-accent transition-colors"><X className="h-3.5 w-3.5" /></button>
+            </div>
+            <div className="p-3">
+              <QueryTemplates onSelectTemplate={handleSelectTemplate} dbType={dbType} currentQuery={activeTab?.query} />
+            </div>
           </div>
-          <div className="p-3">
-            <QueryTemplates onSelectTemplate={handleSelectTemplate} dbType={dbType} currentQuery={activeTab?.query} />
-          </div>
-        </div>
+        </>
       )}
 
       {/* Template Variable Dialog */}
       {templateVarDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
-          <div className="bg-background rounded-lg p-5 w-96 border shadow-lg">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] animate-fade-in">
+          <div className="bg-background rounded-xl p-5 w-96 border shadow-2xl animate-scale-in">
             <h2 className="text-sm font-semibold mb-1">Fill Template Variables</h2>
             <p className="text-[10px] text-muted-foreground mb-3">Replace placeholders with actual values</p>
-            <div className="space-y-2 mb-4 max-h-60 overflow-auto">
+            <div className="space-y-2.5 mb-4 max-h-60 overflow-auto">
               {templateVarDialog.variables.map(v => (
                 <div key={v}>
-                  <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">{`{{${v}}}`}</label>
+                  <label className="text-[10px] font-medium text-muted-foreground mb-1 block font-mono">{`{{${v}}}`}</label>
                   <input value={templateVarValues[v] || ''} onChange={e => setTemplateVarValues(prev => ({ ...prev, [v]: e.target.value }))}
-                    placeholder={v} className="w-full px-2 py-1.5 text-[11px] rounded-md border bg-muted/50 outline-none focus:ring-1 focus:ring-primary" />
+                    placeholder={v} className="w-full px-2.5 py-1.5 text-[11px] rounded-lg border bg-muted/50 outline-none focus:ring-1 focus:ring-primary transition-shadow" />
                 </div>
               ))}
             </div>
-            <div className="flex gap-1.5 justify-end">
-              <button onClick={() => setTemplateVarDialog(null)} className="px-3 py-1.5 text-[11px] font-medium rounded-md border hover:bg-accent">Cancel</button>
-              <button onClick={handleApplyTemplateVars} className="px-3 py-1.5 text-[11px] font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90">Apply</button>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setTemplateVarDialog(null)} className="px-3 py-1.5 text-[11px] font-medium rounded-lg border hover:bg-accent transition-colors">Cancel</button>
+              <button onClick={handleApplyTemplateVars} className="px-3 py-1.5 text-[11px] font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-colors">Apply</button>
             </div>
           </div>
         </div>
@@ -509,14 +507,17 @@ ${JSON.stringify(explainResult.explain, null, 2)}`
 
       {/* Save Dialog */}
       {showSaveDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-background rounded-lg p-5 w-80 border shadow-lg">
-            <h2 className="text-sm font-semibold mb-3">Save Query</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in">
+          <div className="bg-background rounded-xl p-5 w-80 border shadow-2xl animate-scale-in">
+            <div className="flex items-center gap-2 mb-3">
+              <Save className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold">Save Query</h2>
+            </div>
             <Input placeholder="Query name" value={queryName} onChange={e => setQueryName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleSaveQuery() }} className="mb-3 text-[11px] h-8" />
-            <div className="flex gap-1.5 justify-end">
-              <button onClick={() => setShowSaveDialog(false)} className="px-3 py-1.5 text-[11px] font-medium rounded-md border hover:bg-accent">Cancel</button>
-              <button onClick={handleSaveQuery} className="px-3 py-1.5 text-[11px] font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90">Save</button>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowSaveDialog(false)} className="px-3 py-1.5 text-[11px] font-medium rounded-lg border hover:bg-accent transition-colors">Cancel</button>
+              <button onClick={handleSaveQuery} className="px-3 py-1.5 text-[11px] font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-colors">Save</button>
             </div>
           </div>
         </div>
@@ -524,15 +525,15 @@ ${JSON.stringify(explainResult.explain, null, 2)}`
 
       {/* Explain Plan Modal */}
       {showExplain && explainPlan && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100]" onClick={() => setShowExplain(false)}>
-          <div className="bg-background rounded-lg w-[800px] max-h-[80vh] flex flex-col border shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-4 py-3 border-b">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] animate-fade-in" onClick={() => setShowExplain(false)}>
+          <div className="bg-background rounded-xl w-[800px] max-h-[80vh] flex flex-col border shadow-2xl animate-scale-in" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b bg-card/50">
               <div className="flex items-center gap-2">
                 <FileSearch className="h-4 w-4 text-orange-400" />
                 <h3 className="text-sm font-semibold">Query Execution Plan</h3>
-                <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted">{isPostgreSQL ? 'PostgreSQL' : 'MongoDB'}</span>
+                <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded-md bg-muted font-medium">{isPostgreSQL ? 'PostgreSQL' : 'MongoDB'}</span>
               </div>
-              <button onClick={() => setShowExplain(false)} className="p-1 rounded hover:bg-accent"><X className="h-4 w-4" /></button>
+              <button onClick={() => setShowExplain(false)} className="p-1.5 rounded-md hover:bg-accent transition-colors"><X className="h-4 w-4" /></button>
             </div>
             <div className="flex-1 overflow-auto p-4">
               <ExplainPlanTree plan={explainPlan} dbType={isPostgreSQL ? 'postgresql' : 'mongodb'} />
@@ -543,15 +544,15 @@ ${JSON.stringify(explainResult.explain, null, 2)}`
 
       {/* AI Optimization Modal */}
       {showOptimize && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100]" onClick={() => { if (!optimizeLoading) setShowOptimize(false) }}>
-          <div className="bg-background rounded-lg w-[900px] max-h-[85vh] flex flex-col border shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-4 py-3 border-b">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] animate-fade-in" onClick={() => { if (!optimizeLoading) setShowOptimize(false) }}>
+          <div className="bg-background rounded-xl w-[900px] max-h-[85vh] flex flex-col border shadow-2xl animate-scale-in" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b bg-card/50">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-purple-400" />
                 <h3 className="text-sm font-semibold">AI Query Optimization</h3>
-                <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted">{isPostgreSQL ? 'PostgreSQL' : 'MongoDB'}</span>
+                <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded-md bg-muted font-medium">{isPostgreSQL ? 'PostgreSQL' : 'MongoDB'}</span>
                 {optimizeLoading && (
-                  <span className="flex items-center gap-1 text-[10px] text-purple-400">
+                  <span className="flex items-center gap-1.5 text-[10px] text-purple-400 ml-1">
                     <span className="h-2 w-2 rounded-full bg-purple-400 animate-pulse" />
                     Analyzing...
                   </span>
@@ -560,18 +561,18 @@ ${JSON.stringify(explainResult.explain, null, 2)}`
               <div className="flex items-center gap-2">
                 {optimizeLoading && (
                   <button onClick={() => { optimizeAbortRef.current?.abort(); setOptimizeLoading(false) }}
-                    className="px-2 py-1 text-[10px] font-medium rounded border border-red-500/50 text-red-400 hover:bg-red-500/10 transition-colors">
+                    className="px-2.5 py-1 text-[10px] font-medium rounded-md border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors">
                     Cancel
                   </button>
                 )}
                 {!optimizeLoading && optimizeResult && (
                   <button onClick={() => navigator.clipboard.writeText(optimizeResult).then(() => tt.success('Copied!'))}
-                    className="px-2 py-1 text-[10px] font-medium rounded border hover:bg-accent transition-colors">
+                    className="px-2.5 py-1 text-[10px] font-medium rounded-md border hover:bg-accent transition-colors">
                     Copy
                   </button>
                 )}
                 <button onClick={() => { if (!optimizeLoading) setShowOptimize(false) }} disabled={optimizeLoading}
-                  className="p-1 rounded hover:bg-accent disabled:opacity-50"><X className="h-4 w-4" /></button>
+                  className="p-1.5 rounded-md hover:bg-accent disabled:opacity-50 transition-colors"><X className="h-4 w-4" /></button>
               </div>
             </div>
             <div className="flex-1 overflow-auto p-4">

@@ -21,24 +21,19 @@ export function LockScreen() {
     setLoading(true)
     setError('')
     try {
+      // Check if 2FA is still enabled (may have been disabled while locked)
       const status = await window.electronAPI.security.get2FAStatus()
       if (!status.success || !status.enabled) {
-        // 2FA was disabled while locked — just unlock
         unlock()
         return
       }
-      // Get secret from backend to verify
-      const secretRes = await window.electronAPI.security.get2FAStatus()
-      // We need the secret for verification — fetch it via a dedicated call
-      // Actually verify2FA needs the secret. We store it in backend only.
-      // Let's add a helper: we call verify with the stored secret on the backend side.
-      // For now, we use a workaround: call the backend verify which reads from storage.
+      // Verify using the stored secret on the backend side
       const result = await window.electronAPI.security.verify2FA('__stored__', code)
       if (result.success && result.valid) {
         unlock()
         setCode('')
       } else {
-        setError('Invalid code. Please try again.')
+        setError(result.error || 'Invalid code. Please try again.')
         setCode('')
         inputRef.current?.focus()
       }
@@ -54,7 +49,7 @@ export function LockScreen() {
   }, [handleVerify])
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-[#0a0a1a]/95 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-[#0a0a1a]/95 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Application locked">
       <div className="flex flex-col items-center gap-6 p-8 rounded-2xl bg-card/90 border border-border shadow-2xl w-[360px]">
         {/* Logo */}
         <div className="flex flex-col items-center gap-3">

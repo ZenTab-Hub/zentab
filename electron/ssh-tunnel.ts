@@ -24,16 +24,16 @@ const tunnels = new Map<string, TunnelInfo>()
  * through the SSH server defined in sshConfig.
  * Returns the local port number to connect to.
  */
-export const createSSHTunnel = (
+export const createSSHTunnel = async (
   connectionId: string,
   sshConfig: SSHTunnelConfig,
   targetHost: string,
   targetPort: number
 ): Promise<number> => {
-  return new Promise((resolve, reject) => {
-    // Close any existing tunnel for this connection
-    closeSSHTunnel(connectionId).catch(() => {})
+  // Close any existing tunnel for this connection (await to prevent race condition)
+  await closeSSHTunnel(connectionId).catch(() => {})
 
+  return new Promise((resolve, reject) => {
     const sshClient = new Client()
 
     sshClient.on('ready', () => {
@@ -59,11 +59,11 @@ export const createSSHTunnel = (
         const addr = server.address() as net.AddressInfo
         const localPort = addr.port
         tunnels.set(connectionId, { server, sshClient, localPort })
-        console.log(`SSH tunnel created: 127.0.0.1:${localPort} → ${sshConfig.host}:${sshConfig.port} → ${targetHost}:${targetPort}`)
         resolve(localPort)
       })
 
       server.on('error', (err) => {
+        server.close()
         sshClient.end()
         reject(err)
       })
@@ -98,7 +98,6 @@ export const closeSSHTunnel = async (connectionId: string): Promise<void> => {
     tunnel.server.close()
     tunnel.sshClient.end()
     tunnels.delete(connectionId)
-    console.log(`SSH tunnel closed for connection: ${connectionId}`)
   }
 }
 

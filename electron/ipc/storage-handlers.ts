@@ -16,8 +16,12 @@ export function setupStorageHandlers(ipcMain: IpcMain) {
   })
 
   ipcMain.handle('storage:deleteConnection', (_event, id) => {
-    deleteConnection(id)
-    return { success: true }
+    try {
+      deleteConnection(id)
+      return { success: true }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
   })
 
   ipcMain.handle('storage:saveQuery', (_event, query) => {
@@ -29,13 +33,21 @@ export function setupStorageHandlers(ipcMain: IpcMain) {
   })
 
   ipcMain.handle('storage:deleteSavedQuery', (_event, id) => {
-    deleteSavedQuery(id)
-    return { success: true }
+    try {
+      deleteSavedQuery(id)
+      return { success: true }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
   })
 
   ipcMain.handle('storage:addQueryHistory', (_event, history) => {
-    addQueryHistory(history)
-    return { success: true }
+    try {
+      addQueryHistory(history)
+      return { success: true }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
   })
 
   ipcMain.handle('storage:getQueryHistory', (_event, limit) => {
@@ -52,8 +64,12 @@ export function setupStorageHandlers(ipcMain: IpcMain) {
   })
 
   ipcMain.handle('storage:deleteQueryTemplate', (_event, id) => {
-    deleteQueryTemplate(id)
-    return { success: true }
+    try {
+      deleteQueryTemplate(id)
+      return { success: true }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
   })
 }
 

@@ -32,6 +32,7 @@ import { useConnectionStore } from '@/store/connectionStore'
 import { databaseService } from '@/services/database.service'
 import { SettingsModal } from '@/components/settings/SettingsModal'
 import { DatabaseIcon, getDatabaseTypeName } from '@/components/common/DatabaseIcon'
+import { useToast } from '@/components/common/Toast'
 import {
   CreateDatabaseModal,
   ConfirmDropModal,
@@ -56,7 +57,8 @@ const navigation = [
 export const Sidebar = () => {
   const location = useLocation()
   const navigate = useNavigate()
-  const { activeConnectionId, getActiveConnection, selectedDatabase, selectedCollection, setSelectedDatabase, setSelectedCollection } = useConnectionStore()
+  const tt = useToast()
+  const { activeConnectionId, getActiveConnection, selectedDatabase, selectedCollection, setSelectedDatabase, setSelectedCollection, setCachedDatabases, setCachedCollections } = useConnectionStore()
   const activeConnection = getActiveConnection()
 
   const [databases, setDatabases] = useState<any[]>([])
@@ -106,10 +108,14 @@ export const Sidebar = () => {
     try {
       const result: any = await databaseService.listDatabases(activeConnectionId)
       if (result.success) {
-        setDatabases(result.databases || [])
+        const dbs = result.databases || []
+        setDatabases(dbs)
+        setCachedDatabases(dbs)
+      } else {
+        tt.error('Failed to load databases: ' + (result.error || 'Unknown error'))
       }
-    } catch (error) {
-      console.error('Failed to load databases:', error)
+    } catch (error: any) {
+      tt.error('Failed to load databases: ' + error.message)
     }
   }
 
@@ -118,10 +124,14 @@ export const Sidebar = () => {
     try {
       const result: any = await databaseService.listCollections(activeConnectionId, dbName)
       if (result.success) {
-        setCollections(prev => ({ ...prev, [dbName]: result.collections || [] }))
+        const colls = result.collections || []
+        setCollections(prev => ({ ...prev, [dbName]: colls }))
+        setCachedCollections(dbName, colls)
+      } else {
+        tt.error('Failed to load collections: ' + (result.error || 'Unknown error'))
       }
-    } catch (error) {
-      console.error('Failed to load collections:', error)
+    } catch (error: any) {
+      tt.error('Failed to load collections: ' + error.message)
     }
   }
 
@@ -263,7 +273,7 @@ export const Sidebar = () => {
       <div className="flex h-10 items-center justify-between px-3 border-b border-border/50">
         <div className="flex items-center gap-2">
           <img src="/logo.png" alt="Logo" className="h-5 w-5 object-contain rounded border border-border/50" />
-          <span className="text-xs font-semibold text-sidebar-foreground uppercase tracking-wider">Zentab</span>
+          <span className="text-xs font-bold text-foreground tracking-wider">Zentab</span>
         </div>
         <button
           onClick={() => setCollapsed(true)}
@@ -276,14 +286,19 @@ export const Sidebar = () => {
 
       {/* Connection Info */}
       {activeConnection && (
-        <div className="px-3 py-2 border-b border-border/50">
+        <div className="px-3 py-2.5 border-b border-border/50">
           <div className="flex items-center gap-2">
-            <DatabaseIcon type={activeConnection.type || 'mongodb'} className="h-3.5 w-3.5" />
-            <span className="text-xs font-medium truncate flex-1">{activeConnection.name}</span>
+            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 shrink-0">
+              <DatabaseIcon type={activeConnection.type || 'mongodb'} className="h-3.5 w-3.5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="text-xs font-semibold truncate block">{activeConnection.name}</span>
+              <span className="text-[10px] text-sidebar-foreground">{getDatabaseTypeName(activeConnection.type || 'mongodb')}</span>
+            </div>
             {!isRedis && (
               <button
                 onClick={() => setShowCreateDb(true)}
-                className="p-0.5 rounded hover:bg-sidebar-accent transition-colors"
+                className="p-1 rounded hover:bg-sidebar-accent transition-colors"
                 title="Create Database"
               >
                 <Plus className="h-3 w-3 text-sidebar-foreground" />
@@ -291,14 +306,11 @@ export const Sidebar = () => {
             )}
             <button
               onClick={loadDatabases}
-              className="p-0.5 rounded hover:bg-sidebar-accent transition-colors"
+              className="p-1 rounded hover:bg-sidebar-accent transition-colors"
               title="Refresh"
             >
               <RefreshCw className="h-3 w-3 text-sidebar-foreground" />
             </button>
-          </div>
-          <div className="text-[10px] text-sidebar-foreground mt-0.5 ml-5.5">
-            {getDatabaseTypeName(activeConnection.type || 'mongodb')}
           </div>
         </div>
       )}
@@ -410,6 +422,7 @@ export const Sidebar = () => {
 
       {/* Navigation */}
       <nav className="border-t border-border/50 p-1.5">
+        <div className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50 px-2 py-1.5">Navigation</div>
         <div className="space-y-0.5">
           {navigation.filter(item => !(item as any).dbType || (item as any).dbType === activeConnection?.type).map((item) => {
             const isActive = location.pathname === item.href
@@ -418,13 +431,13 @@ export const Sidebar = () => {
                 key={item.name}
                 to={item.href}
                 className={cn(
-                  'flex items-center gap-2 rounded px-2 py-1.5 text-[11px] font-medium transition-colors',
+                  'flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-all duration-150',
                   isActive
-                    ? 'bg-primary/15 text-primary'
+                    ? 'bg-primary/10 text-primary shadow-sm'
                     : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground'
                 )}
               >
-                <item.icon className="h-3.5 w-3.5 shrink-0" />
+                <item.icon className={cn('h-3.5 w-3.5 shrink-0', isActive && 'text-primary')} />
                 {item.name}
               </Link>
             )
@@ -436,19 +449,19 @@ export const Sidebar = () => {
       <div className="border-t border-border/50 p-1.5 space-y-0.5">
         <button
           onClick={() => window.dispatchEvent(new CustomEvent('zentab:openShortcuts'))}
-          className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-[11px] font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
+          className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[11px] font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground transition-all duration-150"
         >
           <Keyboard className="h-3.5 w-3.5" />
           Shortcuts
-          <span className="ml-auto text-[9px] text-muted-foreground font-mono">{navigator.platform.includes('Mac') ? '⌘/' : 'Ctrl+/'}</span>
+          <span className="ml-auto text-[9px] text-muted-foreground/60 font-mono">{navigator.platform.includes('Mac') ? '⌘/' : 'Ctrl+/'}</span>
         </button>
         <button
           onClick={() => setShowSettings(true)}
-          className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-[11px] font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
+          className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[11px] font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground transition-all duration-150"
         >
           <Settings className="h-3.5 w-3.5" />
           Settings
-          <span className="ml-auto text-[9px] text-muted-foreground font-mono">{navigator.platform.includes('Mac') ? '⌘,' : 'Ctrl+,'}</span>
+          <span className="ml-auto text-[9px] text-muted-foreground/60 font-mono">{navigator.platform.includes('Mac') ? '⌘,' : 'Ctrl+,'}</span>
         </button>
       </div>
 
@@ -457,31 +470,28 @@ export const Sidebar = () => {
       {/* Context Menu */}
       {ctxMenu && (
         <div
-          className="fixed z-[110] min-w-[160px] rounded-md border border-border bg-popover shadow-lg py-1"
+          className="fixed z-[200] min-w-[180px] rounded-lg border bg-popover shadow-xl py-1 animate-scale-in"
           style={{ left: ctxMenu.x, top: ctxMenu.y }}
           onClick={() => setCtxMenu(null)}
         >
           {ctxMenu.type === 'db' && (
             <>
-              <button className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-accent"
-                onClick={() => setShowCreateColl(ctxMenu.db)}>
-                <Plus className="h-3 w-3" /> Create {itemLabel}
+              <button className="dropdown-item mx-1" onClick={() => setShowCreateColl(ctxMenu.db)}>
+                <Plus className="h-3.5 w-3.5 text-muted-foreground" /> Create {itemLabel}
               </button>
               {!isRedis && !isKafka && (
-                <button className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-accent text-destructive"
-                  onClick={() => setShowDropDb(ctxMenu.db)}>
-                  <Trash2 className="h-3 w-3" /> Drop Database
+                <button className="dropdown-item mx-1 text-destructive hover:!bg-destructive/10" onClick={() => setShowDropDb(ctxMenu.db)}>
+                  <Trash2 className="h-3.5 w-3.5" /> Drop Database
                 </button>
               )}
               {isRedis && (
-                <button className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-accent text-destructive"
-                  onClick={() => setShowDropDb(ctxMenu.db)}>
-                  <Trash2 className="h-3 w-3" /> Flush Database
+                <button className="dropdown-item mx-1 text-destructive hover:!bg-destructive/10" onClick={() => setShowDropDb(ctxMenu.db)}>
+                  <Trash2 className="h-3.5 w-3.5" /> Flush Database
                 </button>
               )}
-              <button className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-accent"
-                onClick={() => { loadCollections(ctxMenu.db) }}>
-                <RefreshCw className="h-3 w-3" /> Refresh
+              <div className="my-1 border-t border-border/50 mx-2" />
+              <button className="dropdown-item mx-1" onClick={() => { loadCollections(ctxMenu.db) }}>
+                <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" /> Refresh
               </button>
             </>
           )}
@@ -489,36 +499,35 @@ export const Sidebar = () => {
             <>
               {isKafka && (
                 <>
-                  <button className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-accent"
+                  <button className="dropdown-item mx-1"
                     onClick={() => { handleSelectCollection(ctxMenu.db, ctxMenu.coll!); navigate('/data-viewer') }}>
-                    <Eye className="h-3 w-3" /> View Messages
+                    <Eye className="h-3.5 w-3.5 text-muted-foreground" /> View Messages
                   </button>
-                  <button className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-accent"
+                  <button className="dropdown-item mx-1"
                     onClick={() => { handleSelectCollection(ctxMenu.db, ctxMenu.coll!); navigate('/kafka-tools?tab=config&topic=' + encodeURIComponent(ctxMenu.coll!)) }}>
-                    <Settings2 className="h-3 w-3" /> Topic Config
+                    <Settings2 className="h-3.5 w-3.5 text-muted-foreground" /> Topic Config
                   </button>
-                  <button className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-accent"
+                  <button className="dropdown-item mx-1"
                     onClick={() => { handleSelectCollection(ctxMenu.db, ctxMenu.coll!); navigate('/kafka-tools?tab=groups') }}>
-                    <Users className="h-3 w-3" /> Consumer Groups
+                    <Users className="h-3.5 w-3.5 text-muted-foreground" /> Consumer Groups
                   </button>
-                  <div className="my-0.5 border-t border-border/50" />
+                  <div className="my-1 border-t border-border/50 mx-2" />
                 </>
               )}
               {!isKafka && (
-                <button className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-accent"
-                  onClick={() => setShowRenameColl({ db: ctxMenu.db, coll: ctxMenu.coll! })}>
-                  <Edit3 className="h-3 w-3" /> Rename {itemLabel}
+                <button className="dropdown-item mx-1" onClick={() => setShowRenameColl({ db: ctxMenu.db, coll: ctxMenu.coll! })}>
+                  <Edit3 className="h-3.5 w-3.5 text-muted-foreground" /> Rename {itemLabel}
                 </button>
               )}
               {supportsIndex && (
-                <button className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-accent"
-                  onClick={() => openIndexManager(ctxMenu.db, ctxMenu.coll!)}>
-                  <List className="h-3 w-3" /> Manage Indexes
+                <button className="dropdown-item mx-1" onClick={() => openIndexManager(ctxMenu.db, ctxMenu.coll!)}>
+                  <List className="h-3.5 w-3.5 text-muted-foreground" /> Manage Indexes
                 </button>
               )}
-              <button className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-accent text-destructive"
+              <div className="my-1 border-t border-border/50 mx-2" />
+              <button className="dropdown-item mx-1 text-destructive hover:!bg-destructive/10"
                 onClick={() => setShowDropColl({ db: ctxMenu.db, coll: ctxMenu.coll! })}>
-                <Trash2 className="h-3 w-3" /> Drop {itemLabel}
+                <Trash2 className="h-3.5 w-3.5" /> Drop {itemLabel}
               </button>
             </>
           )}

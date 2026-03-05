@@ -3,6 +3,12 @@ import * as OTPAuth from 'otpauth'
 import QRCode from 'qrcode'
 import { getAppSetting, setAppSetting, deleteAppSetting } from '../storage'
 
+// Rate limiting for 2FA verification to prevent brute force attacks
+const verifyAttempts = { count: 0, lastReset: Date.now(), lockedUntil: 0 }
+const MAX_ATTEMPTS = 5
+const RESET_INTERVAL_MS = 60_000 // 1 minute
+const LOCKOUT_MS = 300_000 // 5 minute lockout after max attempts
+
 export function setupSecurityHandlers(ipcMain: IpcMain) {
   ipcMain.handle('security:setup2FA', async () => {
     try {
@@ -25,7 +31,19 @@ export function setupSecurityHandlers(ipcMain: IpcMain) {
 
   ipcMain.handle('security:verify2FA', async (_event, secret: string, token: string) => {
     try {
-      // If secret is '__stored__', read from storage (used by LockScreen)
+      // Rate limiting check
+      const now = Date.now()
+      if (now < verifyAttempts.lockedUntil) {
+        const remainingSec = Math.ceil((verifyAttempts.lockedUntil - now) / 1000)
+        return { success: false, error: `Too many failed attempts. Try again in ${remainingSec} seconds.` }
+      }
+      // Reset counter after interval
+      if (now - verifyAttempts.lastReset > RESET_INTERVAL_MS) {
+        verifyAttempts.count = 0
+        verifyAttempts.lastReset = now
+      }
+
+      // Resolve the actual secret
       let actualSecret = secret
       if (secret === '__stored__') {
         const stored = getAppSetting('2fa_secret')
@@ -41,7 +59,21 @@ export function setupSecurityHandlers(ipcMain: IpcMain) {
         secret: OTPAuth.Secret.fromBase32(actualSecret),
       })
       const delta = totp.validate({ token, window: 1 })
-      return { success: true, valid: delta !== null }
+      const valid = delta !== null
+
+      if (valid) {
+        // Reset attempts on successful verification
+        verifyAttempts.count = 0
+      } else {
+        verifyAttempts.count++
+        if (verifyAttempts.count >= MAX_ATTEMPTS) {
+          verifyAttempts.lockedUntil = now + LOCKOUT_MS
+          verifyAttempts.count = 0
+          return { success: false, error: 'Too many failed attempts. Locked for 5 minutes.' }
+        }
+      }
+
+      return { success: true, valid }
     } catch (error: any) {
       return { success: false, error: error.message }
     }

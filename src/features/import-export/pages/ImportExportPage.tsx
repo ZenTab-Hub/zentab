@@ -79,22 +79,42 @@ export const ImportExportPage = () => {
 
   const handleImport = async () => {
     if (!ready || !preview) return
+
+    // Pre-flight validation: check each document is a valid object
+    const errors: string[] = []
+    preview.data.forEach((doc, i) => {
+      if (doc === null || typeof doc !== 'object' || Array.isArray(doc)) {
+        errors.push(`Row ${i + 1}: not a valid object`)
+      }
+    })
+    if (errors.length > 0) {
+      tt.error(`Validation failed: ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? ` and ${errors.length - 3} more` : ''}`)
+      return
+    }
+
     setImporting(true)
     setImportProgress({ current: 0, total: preview.data.length })
-    let success = 0; let failed = 0
+    let success = 0; let failed = 0; const failedRows: number[] = []
     const BATCH = 100
     try {
       for (let i = 0; i < preview.data.length; i += BATCH) {
         const batch = preview.data.slice(i, i + BATCH)
-        for (const doc of batch) {
+        for (let j = 0; j < batch.length; j++) {
           try {
-            await databaseService.insertDocument(activeConnectionId!, selectedDatabase!, selectedCollection!, doc, dbType)
+            await databaseService.insertDocument(activeConnectionId!, selectedDatabase!, selectedCollection!, batch[j], dbType)
             success++
-          } catch { failed++ }
+          } catch {
+            failed++
+            failedRows.push(i + j + 1)
+          }
         }
         setImportProgress({ current: Math.min(i + BATCH, preview.data.length), total: preview.data.length })
       }
-      tt.success(`Imported ${success} documents${failed ? `, ${failed} failed` : ''}`)
+      if (failed > 0) {
+        tt.warning(`Imported ${success} documents, ${failed} failed (rows: ${failedRows.slice(0, 5).join(', ')}${failedRows.length > 5 ? '...' : ''})`)
+      } else {
+        tt.success(`Imported ${success} documents successfully`)
+      }
       setPreview(null)
     } catch (e: any) {
       tt.error('Import failed: ' + (e.message || e))
@@ -133,74 +153,76 @@ export const ImportExportPage = () => {
   }
 
   const FmtBtn = ({ fmt, active, onClick }: { fmt: Format; active: boolean; onClick: () => void }) => (
-    <button onClick={onClick} className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-md border transition-colors ${active ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-accent'}`}>
+    <button onClick={onClick} className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-lg border transition-all duration-150 active:scale-[0.97] ${active ? 'border-primary/40 bg-primary/10 text-primary shadow-sm' : 'hover:bg-accent'}`}>
       {fmt === 'json' ? <FileJson className="h-3.5 w-3.5" /> : <FileSpreadsheet className="h-3.5 w-3.5" />}
       {fmt.toUpperCase()}
     </button>
   )
 
   return (
-    <div className="h-full flex flex-col gap-4 p-1">
+    <div className="h-full flex flex-col gap-4 p-2">
       <div>
         <h1 className="text-lg font-semibold">Import / Export</h1>
         <p className="text-xs text-muted-foreground mt-0.5">
-          {ready ? <><span className="text-primary">{selectedDatabase}</span> → <span className="text-primary">{selectedCollection}</span></> : 'Select a database and collection from the sidebar'}
+          {ready ? <><span className="text-primary font-medium">{selectedDatabase}</span> <span className="text-muted-foreground/40">›</span> <span className="text-primary font-medium">{selectedCollection}</span></> : 'Select a database and collection from the sidebar'}
         </p>
       </div>
 
       {!ready && (
-        <div className="flex items-center gap-2 p-3 rounded-md border border-yellow-500/30 bg-yellow-500/5">
-          <AlertTriangle className="h-4 w-4 text-yellow-500 shrink-0" />
-          <p className="text-xs text-yellow-500">Connect to a database and select a collection to import/export data.</p>
+        <div className="flex items-center gap-2.5 p-3 rounded-xl border border-warning/30 bg-warning/5">
+          <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
+          <p className="text-xs text-warning">Connect to a database and select a collection to import/export data.</p>
         </div>
       )}
 
       <div className="grid gap-3 md:grid-cols-2">
         {/* Import Card */}
-        <div className="rounded-md border bg-card p-4 flex flex-col">
-          <div className="mb-3 flex items-center gap-2">
-            <Upload className="h-4 w-4 text-primary" />
+        <div className="rounded-xl border bg-card p-5 flex flex-col hover:shadow-md transition-shadow duration-200">
+          <div className="mb-3 flex items-center gap-2.5">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Upload className="h-4 w-4 text-primary" />
+            </div>
             <span className="text-sm font-semibold">Import Data</span>
           </div>
-          <p className="mb-3 text-xs text-muted-foreground">Import documents from a file into the selected collection</p>
-          <div className="flex gap-2 mb-3">
+          <p className="mb-4 text-xs text-muted-foreground leading-relaxed">Import documents from a file into the selected collection</p>
+          <div className="flex gap-2 mb-4">
             <FmtBtn fmt="json" active={importFormat === 'json'} onClick={() => setImportFormat('json')} />
             <FmtBtn fmt="csv" active={importFormat === 'csv'} onClick={() => setImportFormat('csv')} />
           </div>
           <input ref={fileRef} type="file" className="hidden" accept={importFormat === 'json' ? '.json' : '.csv'} />
           <button onClick={handleFileSelect} disabled={!ready || importing}
-            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-medium rounded-md border hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 text-[11px] font-medium rounded-lg border-2 border-dashed border-border hover:border-primary/40 hover:bg-accent/50 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]">
             <Upload className="h-3.5 w-3.5" />
             Choose File to Import
           </button>
 
           {/* Preview */}
           {preview && (
-            <div className="mt-3 border rounded-md overflow-hidden">
+            <div className="mt-4 border rounded-lg overflow-hidden animate-slide-up">
               <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-b">
                 <span className="text-[11px] font-medium">{preview.fileName} — {preview.data.length} documents</span>
-                <button onClick={() => setPreview(null)} className="text-[10px] text-muted-foreground hover:text-foreground">Clear</button>
+                <button onClick={() => setPreview(null)} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">Clear</button>
               </div>
-              <div className="max-h-[200px] overflow-auto p-2">
-                <pre className="text-[10px] font-mono text-muted-foreground whitespace-pre-wrap">
+              <div className="max-h-[200px] overflow-auto p-2.5">
+                <pre className="text-[10px] font-mono text-muted-foreground whitespace-pre-wrap leading-relaxed">
                   {JSON.stringify(preview.data.slice(0, 5), null, 2)}
                   {preview.data.length > 5 && `\n... and ${preview.data.length - 5} more`}
                 </pre>
               </div>
-              <div className="px-3 py-2 border-t flex items-center justify-between">
+              <div className="px-3 py-2.5 border-t flex items-center justify-between bg-card">
                 {importing ? (
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1.5">
                       <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                      <span className="text-[10px]">Importing {importProgress.current}/{importProgress.total}...</span>
+                      <span className="text-[10px] font-medium">Importing {importProgress.current}/{importProgress.total}...</span>
                     </div>
                     <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${importProgress.total ? (importProgress.current / importProgress.total) * 100 : 0}%` }} />
+                      <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${importProgress.total ? (importProgress.current / importProgress.total) * 100 : 0}%` }} />
                     </div>
                   </div>
                 ) : (
                   <button onClick={handleImport}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-all duration-150 active:scale-[0.97]">
                     <CheckCircle className="h-3.5 w-3.5" />
                     Import {preview.data.length} Documents
                   </button>
@@ -211,18 +233,20 @@ export const ImportExportPage = () => {
         </div>
 
         {/* Export Card */}
-        <div className="rounded-md border bg-card p-4 flex flex-col">
-          <div className="mb-3 flex items-center gap-2">
-            <Download className="h-4 w-4 text-primary" />
+        <div className="rounded-xl border bg-card p-5 flex flex-col hover:shadow-md transition-shadow duration-200">
+          <div className="mb-3 flex items-center gap-2.5">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Download className="h-4 w-4 text-primary" />
+            </div>
             <span className="text-sm font-semibold">Export Data</span>
           </div>
-          <p className="mb-3 text-xs text-muted-foreground">Export all documents from the selected collection to a file</p>
-          <div className="flex gap-2 mb-3">
+          <p className="mb-4 text-xs text-muted-foreground leading-relaxed">Export all documents from the selected collection to a file</p>
+          <div className="flex gap-2 mb-4">
             <FmtBtn fmt="json" active={exportFormat === 'json'} onClick={() => setExportFormat('json')} />
             <FmtBtn fmt="csv" active={exportFormat === 'csv'} onClick={() => setExportFormat('csv')} />
           </div>
           <button onClick={handleExport} disabled={!ready || exporting}
-            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-medium rounded-md border hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 text-[11px] font-medium rounded-lg border hover:bg-accent transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]">
             {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
             {exporting ? 'Exporting...' : 'Export Data'}
           </button>

@@ -16,7 +16,7 @@ export const connectToPostgreSQL = async (connectionId: string, connectionString
 
     const pool = new Pool({
       connectionString,
-      connectionTimeoutMillis: 10000,
+      connectionTimeoutMillis: 5000,
       idleTimeoutMillis: 30000,
       max: 10,
     })
@@ -32,10 +32,9 @@ export const connectToPostgreSQL = async (connectionId: string, connectionString
 
     connections.set(connectionId, { pool, database })
 
-    console.log(`Connected to PostgreSQL: ${connectionId}`)
     return { success: true, connectionId }
   } catch (error: any) {
-    console.error('PostgreSQL connection error:', error)
+    console.error('PostgreSQL connection error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -46,11 +45,11 @@ export const disconnectFromPostgreSQL = async (connectionId: string) => {
     if (connection) {
       await connection.pool.end()
       connections.delete(connectionId)
-      console.log(`Disconnected from PostgreSQL: ${connectionId}`)
+
     }
     return { success: true }
   } catch (error: any) {
-    console.error('PostgreSQL disconnect error:', error)
+    console.error('PostgreSQL disconnect error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -78,7 +77,7 @@ export const pgListDatabases = async (connectionId: string) => {
     )
     return { success: true, databases: result.rows }
   } catch (error: any) {
-    console.error('PG list databases error:', error)
+    console.error('PG list databases error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -96,7 +95,7 @@ export const pgListTables = async (connectionId: string, _database: string) => {
     )
     return { success: true, collections: result.rows }
   } catch (error: any) {
-    console.error('PG list tables error:', error)
+    console.error('PG list tables error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -112,7 +111,6 @@ export const pgExecuteQuery = async (
     const connection = connections.get(connectionId)
     if (!connection) throw new Error('Not connected')
 
-    console.log('pgExecuteQuery called:', { query, options })
     const result = await connection.pool.query(query)
 
     return {
@@ -123,7 +121,7 @@ export const pgExecuteQuery = async (
       fields: result.fields?.map(f => ({ name: f.name, dataTypeID: f.dataTypeID })),
     }
   } catch (error: any) {
-    console.error('PG execute query error:', error)
+    console.error('PG execute query error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -172,7 +170,7 @@ export const pgFindQuery = async (
       returnedCount: result.rows.length,
     }
   } catch (error: any) {
-    console.error('PG find query error:', error)
+    console.error('PG find query error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -196,7 +194,7 @@ export const pgInsertDocument = async (
 
     return { success: true, insertedId: result.rows[0]?.id, document: result.rows[0] }
   } catch (error: any) {
-    console.error('PG insert error:', error)
+    console.error('PG insert error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -224,7 +222,7 @@ export const pgUpdateDocument = async (
 
     return { success: true, modifiedCount: result.rowCount }
   } catch (error: any) {
-    console.error('PG update error:', error)
+    console.error('PG update error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -245,7 +243,7 @@ export const pgDeleteDocument = async (
 
     return { success: true, deletedCount: result.rowCount }
   } catch (error: any) {
-    console.error('PG delete error:', error)
+    console.error('PG delete error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -273,7 +271,7 @@ export const pgUpdateMany = async (
 
     return { success: true, matchedCount: result.rowCount, modifiedCount: result.rowCount }
   } catch (error: any) {
-    console.error('PG update many error:', error)
+    console.error('PG update many error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -294,7 +292,7 @@ export const pgDeleteMany = async (
 
     return { success: true, deletedCount: result.rowCount }
   } catch (error: any) {
-    console.error('PG delete many error:', error)
+    console.error('PG delete many error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -315,7 +313,7 @@ export const pgCountRows = async (
 
     return { success: true, count: parseInt(result.rows[0]?.count || '0', 10) }
   } catch (error: any) {
-    console.error('PG count rows error:', error)
+    console.error('PG count rows error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -340,7 +338,7 @@ export const pgGetTableSchema = async (
 
     return { success: true, columns: result.rows }
   } catch (error: any) {
-    console.error('PG get table schema error:', error)
+    console.error('PG get table schema error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -358,7 +356,7 @@ export const pgAggregate = async (
     const result = await connection.pool.query(query)
     return { success: true, documents: result.rows }
   } catch (error: any) {
-    console.error('PG aggregate error:', error)
+    console.error('PG aggregate error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -370,12 +368,18 @@ export const pgCreateDatabase = async (connectionId: string, database: string) =
     const connection = connections.get(connectionId)
     if (!connection) throw new Error('Not connected')
 
-    // Database names must be sanitized (no parameterized queries for DDL)
-    const safeName = database.replace(/[^a-zA-Z0-9_]/g, '')
+    // Strict validation: only allow alphanumeric and underscore, must start with letter/underscore
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(database)) {
+      throw new Error('Invalid database name. Use only letters, numbers, and underscores. Must start with a letter or underscore.')
+    }
+    if (database.length > 63) {
+      throw new Error('Database name too long. Maximum 63 characters.')
+    }
+    // Use double-quote escaping for PostgreSQL identifiers (escape any embedded double quotes)
+    const safeName = database.replace(/"/g, '""')
     await connection.pool.query(`CREATE DATABASE "${safeName}"`)
     return { success: true }
   } catch (error: any) {
-    console.error('PG create database error:', error)
     return { success: false, error: error.message }
   }
 }
@@ -385,16 +389,18 @@ export const pgDropDatabase = async (connectionId: string, database: string) => 
     const connection = connections.get(connectionId)
     if (!connection) throw new Error('Not connected')
 
-    const safeName = database.replace(/[^a-zA-Z0-9_]/g, '')
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(database)) {
+      throw new Error('Invalid database name.')
+    }
+    const safeName = database.replace(/"/g, '""')
     // Terminate existing connections to the database first
     await connection.pool.query(
       `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`,
-      [safeName]
+      [database]
     )
     await connection.pool.query(`DROP DATABASE "${safeName}"`)
     return { success: true }
   } catch (error: any) {
-    console.error('PG drop database error:', error)
     return { success: false, error: error.message }
   }
 }
@@ -421,7 +427,7 @@ export const pgCreateTable = async (
     await connection.pool.query(query)
     return { success: true }
   } catch (error: any) {
-    console.error('PG create table error:', error)
+    console.error('PG create table error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -434,7 +440,7 @@ export const pgDropTable = async (connectionId: string, _database: string, table
     await connection.pool.query(`DROP TABLE IF EXISTS "${table}" CASCADE`)
     return { success: true }
   } catch (error: any) {
-    console.error('PG drop table error:', error)
+    console.error('PG drop table error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -447,7 +453,7 @@ export const pgRenameTable = async (connectionId: string, _database: string, old
     await connection.pool.query(`ALTER TABLE "${oldName}" RENAME TO "${newName}"`)
     return { success: true }
   } catch (error: any) {
-    console.error('PG rename table error:', error)
+    console.error('PG rename table error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -469,7 +475,7 @@ export const pgListIndexes = async (connectionId: string, _database: string, tab
     )
     return { success: true, indexes: result.rows }
   } catch (error: any) {
-    console.error('PG list indexes error:', error)
+    console.error('PG list indexes error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -494,7 +500,7 @@ export const pgCreateIndex = async (
     await connection.pool.query(query)
     return { success: true }
   } catch (error: any) {
-    console.error('PG create index error:', error)
+    console.error('PG create index error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -507,7 +513,7 @@ export const pgDropIndex = async (connectionId: string, _database: string, index
     await connection.pool.query(`DROP INDEX IF EXISTS "${indexName}"`)
     return { success: true }
   } catch (error: any) {
-    console.error('PG drop index error:', error)
+    console.error('PG drop index error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -529,7 +535,7 @@ export const pgExplainQuery = async (
 
     return { success: true, explain: result.rows[0]['QUERY PLAN'] || result.rows }
   } catch (error: any) {
-    console.error('PG explain query error:', error)
+    console.error('PG explain query error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -570,7 +576,7 @@ export const pgGetServerStats = async (connectionId: string) => {
       },
     }
   } catch (error: any) {
-    console.error('PG server stats error:', error)
+    console.error('PG server stats error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -607,7 +613,7 @@ export const pgGetActiveQueries = async (connectionId: string) => {
     )
     return { success: true, queries: result.rows }
   } catch (error: any) {
-    console.error('PG active queries error:', error)
+    console.error('PG active queries error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -691,7 +697,7 @@ export const pgGetTableDetails = async (connectionId: string, _database: string,
       size: sizeResult.rows[0] || {},
     }
   } catch (error: any) {
-    console.error('PG table details error:', error)
+    console.error('PG table details error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -714,7 +720,7 @@ export const pgListRoles = async (connectionId: string) => {
     )
     return { success: true, roles: result.rows }
   } catch (error: any) {
-    console.error('PG list roles error:', error)
+    console.error('PG list roles error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -736,7 +742,7 @@ export const pgListExtensions = async (connectionId: string) => {
     )
     return { success: true, extensions: result.rows }
   } catch (error: any) {
-    console.error('PG list extensions error:', error)
+    console.error('PG list extensions error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -764,7 +770,7 @@ export const pgRunMaintenance = async (
     await connection.pool.query(sql)
     return { success: true }
   } catch (error: any) {
-    console.error('PG maintenance error:', error)
+    console.error('PG maintenance error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -790,7 +796,7 @@ export const pgGetTableSizes = async (connectionId: string) => {
     )
     return { success: true, tables: result.rows }
   } catch (error: any) {
-    console.error('PG table sizes error:', error)
+    console.error('PG table sizes error:', error.message)
     return { success: false, error: error.message }
   }
 }

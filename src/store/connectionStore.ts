@@ -4,9 +4,13 @@ import { DatabaseConnection, ConnectionStatus } from '@/types'
 interface ConnectionState {
   connections: DatabaseConnection[]
   activeConnectionId: string | null
-  connectionStatuses: Map<string, ConnectionStatus>
+  connectionStatuses: Record<string, ConnectionStatus>
   selectedDatabase: string | null
   selectedCollection: string | null
+
+  // Shared database/collection cache (prevents duplicate API calls from Header + Sidebar)
+  cachedDatabases: any[]
+  cachedCollections: Record<string, any[]>
 
   // Actions
   setConnections: (connections: DatabaseConnection[]) => void
@@ -19,14 +23,19 @@ interface ConnectionState {
   setSelectedCollection: (collection: string | null) => void
   getActiveConnection: () => DatabaseConnection | null
   getConnectionStatus: (id: string) => ConnectionStatus | null
+  setCachedDatabases: (databases: any[]) => void
+  setCachedCollections: (db: string, collections: any[]) => void
+  clearCache: () => void
 }
 
 export const useConnectionStore = create<ConnectionState>((set, get) => ({
   connections: [],
   activeConnectionId: null,
-  connectionStatuses: new Map(),
+  connectionStatuses: {},
   selectedDatabase: null,
   selectedCollection: null,
+  cachedDatabases: [],
+  cachedCollections: {},
 
   setConnections: (connections) => set({ connections }),
 
@@ -53,13 +62,15 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
       activeConnectionId: id,
       selectedDatabase: null,
       selectedCollection: null,
+      cachedDatabases: [],
+      cachedCollections: {},
     }),
 
   setConnectionStatus: (id, status) =>
     set((state) => {
-      const newStatuses = new Map(state.connectionStatuses)
-      newStatuses.set(id, status)
-      return { connectionStatuses: newStatuses }
+      // Only update if value actually changed (Record allows shallow equality)
+      if (state.connectionStatuses[id] === status) return state
+      return { connectionStatuses: { ...state.connectionStatuses, [id]: status } }
     }),
 
   setSelectedDatabase: (database) =>
@@ -77,7 +88,15 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
 
   getConnectionStatus: (id) => {
     const state = get()
-    return state.connectionStatuses.get(id) || null
+    return state.connectionStatuses[id] || null
   },
-}))
 
+  setCachedDatabases: (databases) => set({ cachedDatabases: databases }),
+
+  setCachedCollections: (db, collections) =>
+    set((state) => ({
+      cachedCollections: { ...state.cachedCollections, [db]: collections },
+    })),
+
+  clearCache: () => set({ cachedDatabases: [], cachedCollections: {} }),
+}))

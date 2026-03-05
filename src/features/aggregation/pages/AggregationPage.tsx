@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { Plus, Play, Code, BookOpen, Key, Radio } from 'lucide-react'
 import { PipelineStage } from '../components/PipelineStage'
 import { PipelinePreview } from '../components/PipelinePreview'
@@ -29,14 +29,16 @@ export const AggregationPage = () => {
   // Not supported for Redis and Kafka
   if (dbType === 'redis' || dbType === 'kafka') {
     return (
-      <div className="h-full flex items-center justify-center">
+      <div className="h-full flex items-center justify-center animate-fade-in">
         <div className="text-center">
-          {dbType === 'redis' ? (
-            <Key className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-          ) : (
-            <Radio className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-          )}
-          <p className="text-sm font-medium mb-1">Aggregation Not Available</p>
+          <div className="mx-auto mb-4 p-3 rounded-2xl bg-muted/50 w-fit">
+            {dbType === 'redis' ? (
+              <Key className="h-8 w-8 text-muted-foreground/50" />
+            ) : (
+              <Radio className="h-8 w-8 text-muted-foreground/50" />
+            )}
+          </div>
+          <p className="text-sm font-semibold mb-1">Aggregation Not Available</p>
           <p className="text-xs text-muted-foreground">
             Aggregation pipelines are not supported for {dbType === 'redis' ? 'Redis' : 'Kafka'}
           </p>
@@ -48,41 +50,44 @@ export const AggregationPage = () => {
     )
   }
 
-  const addStage = () => {
+  const addStage = useCallback(() => {
     const newStage: Stage = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       type: '$match',
       content: '{}',
     }
-    setStages([...stages, newStage])
-  }
+    setStages(prev => [...prev, newStage])
+  }, [])
 
-  const updateStage = (id: string, content: string) => {
-    setStages(stages.map((stage) => (stage.id === id ? { ...stage, content } : stage)))
-  }
+  const updateStage = useCallback((id: string, content: string) => {
+    setStages(prev => prev.map((stage) => (stage.id === id ? { ...stage, content } : stage)))
+  }, [])
 
-  const deleteStage = (id: string) => {
-    if (stages.length === 1) {
-      tt.warning('Pipeline must have at least one stage')
-      return
-    }
-    setStages(stages.filter((stage) => stage.id !== id))
-  }
+  const deleteStage = useCallback((id: string) => {
+    setStages(prev => {
+      if (prev.length === 1) {
+        tt.warning('Pipeline must have at least one stage')
+        return prev
+      }
+      return prev.filter((stage) => stage.id !== id)
+    })
+  }, [tt])
 
-  const duplicateStage = (id: string) => {
-    const stage = stages.find((s) => s.id === id)
-    if (stage) {
+  const duplicateStage = useCallback((id: string) => {
+    setStages(prev => {
+      const stage = prev.find((s) => s.id === id)
+      if (!stage) return prev
       const newStage: Stage = {
-        id: Date.now().toString(),
+        id: crypto.randomUUID(),
         type: stage.type,
         content: stage.content,
       }
-      const index = stages.findIndex((s) => s.id === id)
-      const newStages = [...stages]
+      const index = prev.findIndex((s) => s.id === id)
+      const newStages = [...prev]
       newStages.splice(index + 1, 0, newStage)
-      setStages(newStages)
-    }
-  }
+      return newStages
+    })
+  }, [])
 
   const runPipeline = async () => {
     if (!activeConnectionId || !selectedDatabase || !selectedCollection) {
@@ -135,28 +140,28 @@ export const AggregationPage = () => {
   }
 
   return (
-    <div className="flex h-full flex-col gap-3">
+    <div className="flex h-full flex-col gap-3 p-1">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold">Aggregation Pipeline</h1>
           {selectedDatabase && selectedCollection && (
             <p className="text-xs text-muted-foreground mt-0.5">
-              {selectedDatabase} › {selectedCollection}
+              <span className="font-medium">{selectedDatabase}</span> <span className="text-muted-foreground/40">›</span> <span className="font-medium">{selectedCollection}</span>
             </p>
           )}
         </div>
         <div className="flex gap-1.5">
           <button
             onClick={() => setShowCode(!showCode)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium rounded-md border hover:bg-accent transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border hover:bg-accent transition-all duration-150 active:scale-[0.97]"
           >
             <Code className="h-3.5 w-3.5" />
             {showCode ? 'Hide' : 'Show'} Code
           </button>
           <button
             onClick={addStage}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium rounded-md border hover:bg-accent transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium rounded-lg border hover:bg-accent transition-all duration-150 active:scale-[0.97]"
           >
             <Plus className="h-3.5 w-3.5" />
             Add Stage
@@ -164,7 +169,7 @@ export const AggregationPage = () => {
           <button
             onClick={runPipeline}
             disabled={loading || !activeConnectionId}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-all duration-150 active:scale-[0.97] disabled:opacity-50"
           >
             <Play className="h-3.5 w-3.5" />
             {loading ? 'Running...' : 'Run Pipeline'}
@@ -174,8 +179,8 @@ export const AggregationPage = () => {
 
       {!activeConnectionId || !selectedDatabase || !selectedCollection ? (
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <BookOpen className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+          <div className="text-center animate-fade-in">
+            <BookOpen className="mx-auto h-8 w-8 text-muted-foreground/50 mb-3" />
             <p className="text-xs text-muted-foreground">
               Select a database and table/collection to build pipelines
             </p>
@@ -184,9 +189,9 @@ export const AggregationPage = () => {
       ) : (
         <>
           {showCode && (
-            <div className="rounded-md border bg-card p-3">
-              <span className="text-[11px] font-semibold mb-1.5 block">Generated Code</span>
-              <pre className="bg-muted/50 p-3 rounded text-[11px] overflow-x-auto">
+            <div className="rounded-xl border bg-card p-3 animate-slide-up">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Generated Code</span>
+              <pre className="bg-muted/50 p-3 rounded-lg text-[11px] overflow-x-auto font-mono leading-relaxed">
                 {generateCode()}
               </pre>
             </div>
@@ -194,8 +199,12 @@ export const AggregationPage = () => {
 
           <div className="flex flex-1 gap-3 overflow-hidden">
             <div className="w-1/2 flex flex-col gap-3 overflow-auto">
-              <div className="rounded-md border bg-card p-3">
-                <span className="text-[11px] font-semibold mb-2 block">Pipeline Stages</span>
+              <div className="rounded-xl border bg-card p-3 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Pipeline Stages</span>
+                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground">{stages.length}</span>
+                  <div className="flex-1 h-px bg-border/30" />
+                </div>
                 <div className="space-y-3">
                   {stages.map((stage, index) => (
                     <PipelineStage
@@ -211,8 +220,12 @@ export const AggregationPage = () => {
               </div>
             </div>
 
-            <div className="w-1/2 rounded-md border bg-card p-3 overflow-auto">
-              <span className="text-[11px] font-semibold mb-2 block">Results Preview</span>
+            <div className="w-1/2 rounded-xl border bg-card p-3 overflow-auto shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Results Preview</span>
+                {results.length > 0 && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground">{results.length}</span>}
+                <div className="flex-1 h-px bg-border/30" />
+              </div>
               <PipelinePreview
                 results={results}
                 loading={loading}

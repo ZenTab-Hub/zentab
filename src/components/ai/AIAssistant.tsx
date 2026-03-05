@@ -3,6 +3,7 @@ import { Bot, X, Send, Trash2, Sparkles, Copy, Check } from 'lucide-react'
 import { useConnectionStore } from '@/store/connectionStore'
 import { useAISettingsStore } from '@/store/aiSettingsStore'
 import { aiService, type ChatMessage } from '@/services/ai.service'
+import { renderMarkdown, escapeHtml } from '@/utils/markdown'
 
 interface UIMessage {
   id: string
@@ -34,35 +35,6 @@ function buildContextPrompt(dbType?: string, database?: string, collection?: str
   if (collection) parts.push(`Current table/collection: ${collection}`)
   if (parts.length === 0) return ''
   return `\n\nUser's current context:\n${parts.join('\n')}`
-}
-
-/* ─── Simple Markdown renderer ─── */
-const renderMarkdown = (text: string): string => {
-  return text
-    // Code blocks with language
-    .replace(/```(\w+)?\n([\s\S]*?)```/g, (_m, lang, code) =>
-      `<pre class="ai-code-block"><code class="language-${lang || ''}">${escapeHtml(code.trim())}</code></pre>`)
-    // Inline code
-    .replace(/`([^`]+)`/g, '<code class="ai-inline-code">$1</code>')
-    // Bold
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    // Italic
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    // Headers
-    .replace(/^### (.+)$/gm, '<h4 class="text-xs font-semibold mt-2 mb-1">$1</h4>')
-    .replace(/^## (.+)$/gm, '<h3 class="text-sm font-semibold mt-2 mb-1">$1</h3>')
-    .replace(/^# (.+)$/gm, '<h2 class="text-sm font-bold mt-2 mb-1">$1</h2>')
-    // Unordered lists
-    .replace(/^- (.+)$/gm, '<li class="ml-3">• $1</li>')
-    // Ordered lists
-    .replace(/^\d+\. (.+)$/gm, '<li class="ml-3">$1</li>')
-    // Line breaks (double newline = paragraph)
-    .replace(/\n\n/g, '<br/><br/>')
-    .replace(/\n/g, '<br/>')
-}
-
-function escapeHtml(str: string): string {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
 /* ─── Copy button for code blocks ─── */

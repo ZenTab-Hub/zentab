@@ -89,7 +89,16 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    emptyOutDir: true
+    emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'monaco-editor': ['monaco-editor', '@monaco-editor/react'],
+          'recharts': ['recharts'],
+          'tanstack': ['@tanstack/react-virtual'],
+        }
+      }
+    }
   }
 })
 

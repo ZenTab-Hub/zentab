@@ -26,7 +26,7 @@ export const connectToRedis = async (connectionId: string, connectionString: str
     }
 
     const client = new Redis(connectionString, {
-      connectTimeout: 10000,
+      connectTimeout: 5000,
       lazyConnect: true,
     })
 

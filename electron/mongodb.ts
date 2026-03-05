@@ -8,15 +8,17 @@ interface ConnectionInfo {
 const connections = new Map<string, ConnectionInfo>()
 
 export const connectToMongoDB = async (connectionId: string, connectionString: string) => {
+  let client: MongoClient | null = null
   try {
     // Close existing connection if any
     if (connections.has(connectionId)) {
       await disconnectFromMongoDB(connectionId)
     }
 
-    const client = new MongoClient(connectionString, {
+    client = new MongoClient(connectionString, {
       serverSelectionTimeoutMS: 5000,
-      connectTimeoutMS: 10000,
+      connectTimeoutMS: 5000,
+      socketTimeoutMS: 10000,
     })
 
     await client.connect()
@@ -26,10 +28,12 @@ export const connectToMongoDB = async (connectionId: string, connectionString: s
 
     connections.set(connectionId, { client })
 
-    console.log(`Connected to MongoDB: ${connectionId}`)
     return { success: true, connectionId }
   } catch (error: any) {
-    console.error('MongoDB connection error:', error)
+    // Clean up client on connection failure to prevent leak
+    if (client) {
+      try { await client.close() } catch { /* ignore cleanup errors */ }
+    }
     return { success: false, error: error.message }
   }
 }
@@ -40,11 +44,11 @@ export const disconnectFromMongoDB = async (connectionId: string) => {
     if (connection) {
       await connection.client.close()
       connections.delete(connectionId)
-      console.log(`Disconnected from MongoDB: ${connectionId}`)
+
     }
     return { success: true }
   } catch (error: any) {
-    console.error('MongoDB disconnect error:', error)
+    console.error('MongoDB disconnect error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -70,7 +74,7 @@ export const listDatabases = async (connectionId: string) => {
     const result = await connection.client.db('admin').admin().listDatabases()
     return { success: true, databases: result.databases }
   } catch (error: any) {
-    console.error('List databases error:', error)
+    console.error('List databases error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -87,7 +91,7 @@ export const listCollections = async (connectionId: string, database: string) =>
 
     return { success: true, collections }
   } catch (error: any) {
-    console.error('List collections error:', error)
+    console.error('List collections error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -100,8 +104,6 @@ export const executeQuery = async (
   options: any = {}
 ) => {
   try {
-    console.log('executeQuery called:', { connectionId, database, collection, filter, options })
-
     const connection = connections.get(connectionId)
     if (!connection) {
       throw new Error('Not connected')
@@ -114,11 +116,8 @@ export const executeQuery = async (
     const skip = options.skip || 0
     const sort = options.sort || {}
 
-    console.log('Executing find query with:', { filter, sort, skip, limit })
     const documents = await coll.find(filter).sort(sort).skip(skip).limit(limit).toArray()
     const totalCount = await coll.countDocuments(filter)
-
-    console.log('Query result:', { totalCount, returnedCount: documents.length })
 
     return {
       success: true,
@@ -127,7 +126,7 @@ export const executeQuery = async (
       returnedCount: documents.length,
     }
   } catch (error: any) {
-    console.error('Execute query error:', error)
+    console.error('Execute query error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -154,7 +153,7 @@ export const insertDocument = async (
       insertedId: result.insertedId,
     }
   } catch (error: any) {
-    console.error('Insert document error:', error)
+    console.error('Insert document error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -167,8 +166,6 @@ export const updateDocument = async (
   update: any
 ) => {
   try {
-    console.log('updateDocument called:', { connectionId, database, collection, filter, update })
-
     const connection = connections.get(connectionId)
     if (!connection) {
       throw new Error('Not connected')
@@ -180,17 +177,14 @@ export const updateDocument = async (
     // Remove _id from update to avoid "Performing an update on the path '_id' would modify the immutable field '_id'"
     const { _id, ...updateFields } = update
 
-    console.log('Executing updateOne with filter:', filter, 'update:', updateFields)
     const result = await coll.updateOne(filter, { $set: updateFields })
-
-    console.log('Update result:', { modifiedCount: result.modifiedCount, matchedCount: result.matchedCount })
 
     return {
       success: true,
       modifiedCount: result.modifiedCount,
     }
   } catch (error: any) {
-    console.error('Update document error:', error)
+    console.error('Update document error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -202,8 +196,6 @@ export const deleteDocument = async (
   filter: any
 ) => {
   try {
-    console.log('deleteDocument called:', { connectionId, database, collection, filter })
-
     const connection = connections.get(connectionId)
     if (!connection) {
       throw new Error('Not connected')
@@ -212,17 +204,14 @@ export const deleteDocument = async (
     const db = connection.client.db(database)
     const coll = db.collection(collection)
 
-    console.log('Executing deleteOne with filter:', filter)
     const result = await coll.deleteOne(filter)
-
-    console.log('Delete result:', { deletedCount: result.deletedCount })
 
     return {
       success: true,
       deletedCount: result.deletedCount,
     }
   } catch (error: any) {
-    console.error('Delete document error:', error)
+    console.error('Delete document error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -244,7 +233,7 @@ export const updateMany = async (
 
     return { success: true, matchedCount: result.matchedCount, modifiedCount: result.modifiedCount }
   } catch (error: any) {
-    console.error('Update many error:', error)
+    console.error('Update many error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -265,7 +254,7 @@ export const deleteMany = async (
 
     return { success: true, deletedCount: result.deletedCount }
   } catch (error: any) {
-    console.error('Delete many error:', error)
+    console.error('Delete many error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -286,7 +275,7 @@ export const countDocuments = async (
 
     return { success: true, count }
   } catch (error: any) {
-    console.error('Count documents error:', error)
+    console.error('Count documents error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -298,8 +287,6 @@ export const aggregate = async (
   pipeline: any[]
 ) => {
   try {
-    console.log('aggregate called:', { connectionId, database, collection, pipeline })
-
     const connection = connections.get(connectionId)
     if (!connection) {
       throw new Error('Not connected')
@@ -308,17 +295,14 @@ export const aggregate = async (
     const db = connection.client.db(database)
     const coll = db.collection(collection)
 
-    console.log('Executing aggregation pipeline:', JSON.stringify(pipeline, null, 2))
     const documents = await coll.aggregate(pipeline).toArray()
-
-    console.log('Aggregation result:', { returnedCount: documents.length })
 
     return {
       success: true,
       documents,
     }
   } catch (error: any) {
-    console.error('Aggregate error:', error)
+    console.error('Aggregate error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -342,7 +326,7 @@ export const getCollectionStats = async (
       stats,
     }
   } catch (error: any) {
-    console.error('Get collection stats error:', error)
+    console.error('Get collection stats error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -362,7 +346,7 @@ export const mongoCreateDatabase = async (connectionId: string, database: string
 
     return { success: true }
   } catch (error: any) {
-    console.error('Create database error:', error)
+    console.error('Create database error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -375,7 +359,7 @@ export const mongoDropDatabase = async (connectionId: string, database: string) 
     await connection.client.db(database).dropDatabase()
     return { success: true }
   } catch (error: any) {
-    console.error('Drop database error:', error)
+    console.error('Drop database error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -394,7 +378,7 @@ export const mongoCreateCollection = async (
     await db.createCollection(collection, options || {})
     return { success: true }
   } catch (error: any) {
-    console.error('Create collection error:', error)
+    console.error('Create collection error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -407,7 +391,7 @@ export const mongoDropCollection = async (connectionId: string, database: string
     await connection.client.db(database).dropCollection(collection)
     return { success: true }
   } catch (error: any) {
-    console.error('Drop collection error:', error)
+    console.error('Drop collection error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -425,7 +409,7 @@ export const mongoRenameCollection = async (
     await connection.client.db(database).renameCollection(oldName, newName)
     return { success: true }
   } catch (error: any) {
-    console.error('Rename collection error:', error)
+    console.error('Rename collection error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -440,7 +424,7 @@ export const mongoListIndexes = async (connectionId: string, database: string, c
     const indexes = await connection.client.db(database).collection(collection).listIndexes().toArray()
     return { success: true, indexes }
   } catch (error: any) {
-    console.error('List indexes error:', error)
+    console.error('List indexes error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -459,7 +443,7 @@ export const mongoCreateIndex = async (
     const result = await connection.client.db(database).collection(collection).createIndex(keys, options || {})
     return { success: true, indexName: result }
   } catch (error: any) {
-    console.error('Create index error:', error)
+    console.error('Create index error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -472,7 +456,7 @@ export const mongoDropIndex = async (connectionId: string, database: string, col
     await connection.client.db(database).collection(collection).dropIndex(indexName)
     return { success: true }
   } catch (error: any) {
-    console.error('Drop index error:', error)
+    console.error('Drop index error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -494,7 +478,7 @@ export const explainQuery = async (
 
     return { success: true, explain: explanation }
   } catch (error: any) {
-    console.error('Explain query error:', error)
+    console.error('Explain query error:', error.message)
     return { success: false, error: error.message }
   }
 }
@@ -522,7 +506,7 @@ export const getServerStatus = async (connectionId: string) => {
       },
     }
   } catch (error: any) {
-    console.error('Server status error:', error)
+    console.error('Server status error:', error.message)
     return { success: false, error: error.message }
   }
 }

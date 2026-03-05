@@ -1,4 +1,4 @@
-import { useEffect, useCallback, lazy, Suspense } from 'react'
+import { useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { useSettingsStore, resolveTheme, uiFontSizePx } from '@/store/settingsStore'
@@ -54,19 +54,28 @@ function App() {
     document.body.style.fontSize = uiFontSizePx(uiFontSize)
   }, [uiFontSize])
 
-  // Track user activity for idle lock
+  // Track user activity for idle lock (debounced to avoid excessive updates)
+  const activityTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const handleActivity = useCallback(() => {
     if (twoFAEnabled && !isLocked) {
-      updateActivity()
+      if (activityTimeoutRef.current) return // debounce: skip if pending
+      activityTimeoutRef.current = setTimeout(() => {
+        activityTimeoutRef.current = null
+        updateActivity()
+      }, 1000)
     }
   }, [twoFAEnabled, isLocked, updateActivity])
 
   useEffect(() => {
     if (!twoFAEnabled) return
-    const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click']
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart'] as const
     events.forEach((e) => window.addEventListener(e, handleActivity, { passive: true }))
     return () => {
       events.forEach((e) => window.removeEventListener(e, handleActivity))
+      if (activityTimeoutRef.current) {
+        clearTimeout(activityTimeoutRef.current)
+        activityTimeoutRef.current = null
+      }
     }
   }, [twoFAEnabled, handleActivity])
 

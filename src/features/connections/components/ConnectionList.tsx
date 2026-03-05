@@ -33,33 +33,33 @@ const ConnectionCard = memo(({ connection, isActive, onConnect, onDisconnect, on
   const dbType = connection.type || 'mongodb'
   return (
     <div
-      className={`group relative rounded-lg border p-3.5 transition-all cursor-pointer hover:shadow-md ${
+      className={`group relative rounded-xl border p-4 transition-all duration-200 cursor-pointer ${
         isActive
-          ? 'border-primary/50 bg-primary/5 shadow-sm shadow-primary/10'
-          : 'bg-card hover:bg-accent/30 hover:border-border/80'
+          ? 'border-primary/40 bg-primary/[0.04] shadow-md shadow-primary/5 ring-1 ring-primary/20'
+          : 'bg-card hover:bg-accent/20 hover:border-border/80 hover:shadow-md hover:-translate-y-0.5'
       }`}
       onDoubleClick={() => !isActive && onConnect(connection)}
     >
       {isActive && (
-        <div className="absolute top-3 right-3">
-          <div className="flex h-2 w-2 rounded-full bg-success animate-pulse" />
+        <div className="absolute top-3.5 right-3.5">
+          <div className="flex h-2.5 w-2.5 rounded-full bg-success shadow-sm shadow-success/50 animate-pulse" />
         </div>
       )}
 
       <div className="flex items-start gap-3">
-        <div className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${
-          isActive ? 'bg-primary/15' : 'bg-muted'
+        <div className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 transition-colors ${
+          isActive ? 'bg-primary/15' : 'bg-muted/70'
         }`}>
-          <DatabaseIcon type={dbType} className="h-4 w-4" />
+          <DatabaseIcon type={dbType} className="h-4.5 w-4.5" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold truncate">{connection.name}</h3>
+            <h3 className="text-[13px] font-semibold truncate">{connection.name}</h3>
             <span className={`db-badge ${getDatabaseTypeColor(dbType)}`}>
               {getDatabaseTypeName(dbType)}
             </span>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-0.5 truncate font-mono">
+          <p className="text-[11px] text-muted-foreground mt-1 truncate font-mono">
             {connection.connectionString
               ? connection.connectionString.replace(/\/\/.*:.*@/, '//***:***@')
               : `${connection.host || 'localhost'}:${connection.port || ''}`
@@ -68,11 +68,11 @@ const ConnectionCard = memo(({ connection, isActive, onConnect, onDisconnect, on
         </div>
       </div>
 
-      <div className="flex items-center gap-1 mt-2.5 pt-2.5 border-t border-border/40">
+      <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-border/30">
         {isActive ? (
           <button
             onClick={() => onDisconnect(connection.id)}
-            className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-md bg-destructive/10 text-destructive hover:bg-destructive/20 transition-all duration-150 active:scale-[0.97]"
           >
             <PowerOff className="h-3 w-3" />
             Disconnect
@@ -80,7 +80,7 @@ const ConnectionCard = memo(({ connection, isActive, onConnect, onDisconnect, on
         ) : (
           <button
             onClick={() => onConnect(connection)}
-            className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-all duration-150 active:scale-[0.97]"
           >
             <Power className="h-3 w-3" />
             Connect
@@ -89,21 +89,21 @@ const ConnectionCard = memo(({ connection, isActive, onConnect, onDisconnect, on
         <div className="flex-1" />
         <button
           onClick={() => onClone(connection)}
-          className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100"
+          className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-all duration-150 opacity-0 group-hover:opacity-100"
           title="Clone"
         >
           <Copy className="h-3.5 w-3.5" />
         </button>
         <button
           onClick={() => onEdit(connection)}
-          className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100"
+          className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-all duration-150 opacity-0 group-hover:opacity-100"
           title="Edit"
         >
           <Edit className="h-3.5 w-3.5" />
         </button>
         <button
           onClick={() => !isActive && onDelete(connection.id)}
-          className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-30"
+          className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all duration-150 opacity-0 group-hover:opacity-100 disabled:opacity-30"
           title="Delete"
           disabled={isActive}
         >

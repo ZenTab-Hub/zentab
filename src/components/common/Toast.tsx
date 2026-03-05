@@ -99,23 +99,23 @@ export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
     <ToastContext.Provider value={ctx}>
       {children}
       {/* Toast container */}
-      <div className="fixed bottom-4 right-4 z-[200] flex flex-col gap-2 max-w-sm">
+      <div className="fixed bottom-4 right-4 z-[200] flex flex-col gap-2 max-w-sm" role="region" aria-label="Notifications" aria-live="polite">
         {toasts.map((t) => (
           <ToastItem key={t.id} toast={t} onRemove={removeToast} />
         ))}
       </div>
       {/* Confirm dialog */}
       {confirmState && (
-        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/60" onClick={() => { confirmState.onCancel?.(); setConfirmState(null) }}>
-          <div className="bg-[#1e1e2e] border border-[#333] rounded-lg p-5 max-w-sm w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/60" role="dialog" aria-modal="true" aria-label="Confirmation" onClick={() => { confirmState.onCancel?.(); setConfirmState(null) }}>
+          <div className="bg-card border border-border rounded-lg p-5 max-w-sm w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start gap-3 mb-4">
-              <AlertTriangle className="h-5 w-5 text-yellow-400 shrink-0 mt-0.5" />
-              <p className="text-sm text-[#ccc]">{confirmState.message}</p>
+              <AlertTriangle className="h-5 w-5 text-yellow-400 shrink-0 mt-0.5" aria-hidden="true" />
+              <p className="text-sm text-muted-foreground">{confirmState.message}</p>
             </div>
             <div className="flex justify-end gap-2">
               <button onClick={() => { confirmState.onCancel?.(); setConfirmState(null) }}
-                className="px-3 py-1.5 text-xs rounded-md border border-[#444] text-[#aaa] hover:bg-[#333] transition-colors">Cancel</button>
-              <button onClick={() => { confirmState.onConfirm(); setConfirmState(null) }}
+                className="px-3 py-1.5 text-xs rounded-md border border-border text-muted-foreground hover:bg-accent transition-colors">Cancel</button>
+              <button onClick={() => { confirmState.onConfirm(); setConfirmState(null) }} autoFocus
                 className="px-3 py-1.5 text-xs rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors">Confirm</button>
             </div>
           </div>
@@ -135,10 +135,10 @@ const ToastItem = ({ toast: t, onRemove }: { toast: Toast; onRemove: (id: string
 
   const Icon = iconMap[t.type]
   return (
-    <div className={`flex items-start gap-2 px-3 py-2.5 rounded-lg border shadow-lg animate-in slide-in-from-right-5 ${colorMap[t.type]}`}>
-      <Icon className="h-4 w-4 shrink-0 mt-0.5" />
+    <div role={t.type === 'error' || t.type === 'warning' ? 'alert' : 'status'} className={`flex items-start gap-2 px-3 py-2.5 rounded-lg border shadow-lg animate-in slide-in-from-right-5 ${colorMap[t.type]}`}>
+      <Icon className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
       <p className="text-xs flex-1">{t.message}</p>
-      <button onClick={() => onRemove(t.id)} className="shrink-0 opacity-60 hover:opacity-100"><X className="h-3.5 w-3.5" /></button>
+      <button onClick={() => onRemove(t.id)} className="shrink-0 opacity-60 hover:opacity-100" aria-label="Dismiss notification"><X className="h-3.5 w-3.5" /></button>
     </div>
   )
 }

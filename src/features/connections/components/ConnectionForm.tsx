@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, memo, startTransition } from 'react'
-import { X, Database, Server, HardDrive, Layers, Radio, Shield } from 'lucide-react'
+import { X, Database, Server, HardDrive, Layers, Radio, Shield, Zap, Loader2 } from 'lucide-react'
+import { databaseService } from '@/services/database.service'
 import type { DatabaseType } from '@/types'
 
 /* ── Static class strings (no cn/twMerge at runtime) ─────────── */
@@ -104,6 +105,8 @@ export const ConnectionForm = ({ onSubmit, onCancel, initialData }: ConnectionFo
     privateKey: initialData?.sshTunnel?.privateKey || '',
   }))
   const [sshAuthMode, setSSHAuthMode] = useState<'password' | 'privateKey'>(initialData?.sshTunnel?.privateKey ? 'privateKey' : 'password')
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
 
   // Kafka-specific state
   const [kafkaSASL, setKafkaSASL] = useState<'none' | 'plain' | 'scram-sha-256' | 'scram-sha-512'>(() => {
@@ -175,6 +178,73 @@ export const ConnectionForm = ({ onSubmit, onCancel, initialData }: ConnectionFo
     setNameError('')
     onSubmit({ name: fields.name, type: dbType, host: '', port: cfg.defaultPort, connectionString: connStr, ...sshData })
   }, [fields.name, connStr, dbType, cfg.defaultPort, onSubmit, sshData])
+
+  /* ── Build connection string from current form state ──────── */
+  const buildConnectionString = useCallback((): string => {
+    // If using connection string mode, use it directly
+    if (useConnStr && connStr.trim()) return connStr.trim()
+
+    const host = fields.host?.trim()
+    if (!host && dbType !== 'sqlite') throw new Error('Missing host')
+
+    const auth = fields.username && fields.password
+      ? `${encodeURIComponent(fields.username)}:${encodeURIComponent(fields.password)}@`
+      : ''
+
+    if (dbType === 'postgresql') {
+      const database = fields.database || 'postgres'
+      return `postgresql://${auth}${host}:${fields.port || cfg.defaultPort}/${database}`
+    }
+    if (dbType === 'redis') {
+      const db = fields.database ? `/${fields.database}` : ''
+      return `redis://${auth}${host}:${fields.port || cfg.defaultPort}${db}`
+    }
+    if (dbType === 'kafka') {
+      const port = Number(fields.port) || 9092
+      const brokers = (host || '').split(',').map(b => {
+        const h = b.trim()
+        return h.includes(':') ? h : `${h}:${port}`
+      }).join(',')
+      let proto = 'kafka'
+      const sasl = kafkaSASL || 'none'
+      if (sasl === 'plain') proto += '+sasl_plain'
+      else if (sasl === 'scram-sha-256') proto += '+sasl_scram256'
+      else if (sasl === 'scram-sha-512') proto += '+sasl_scram512'
+      if (kafkaSSL) proto += '+ssl'
+      const kafkaAuth = sasl !== 'none' && fields.username && fields.password
+        ? `${encodeURIComponent(fields.username)}:${encodeURIComponent(fields.password)}@`
+        : ''
+      return `${proto}://${kafkaAuth}${brokers}`
+    }
+    // MongoDB
+    const authDb = fields.authDatabase ? `?authSource=${fields.authDatabase}` : ''
+    return `mongodb://${auth}${host}:${fields.port || cfg.defaultPort}${authDb}`
+  }, [useConnStr, connStr, fields, dbType, cfg.defaultPort, kafkaSASL, kafkaSSL])
+
+  /* ── Test connection handler ──────────────────────────────── */
+  const handleTestConnection = useCallback(async () => {
+    setTesting(true)
+    setTestResult(null)
+    const testId = '__test__'
+    try {
+      const connectionString = buildConnectionString()
+      const sshTunnelConfig = ssh.enabled
+        ? { enabled: true, host: ssh.host, port: Number(ssh.port) || 22, username: ssh.username, password: ssh.password, privateKey: ssh.privateKey }
+        : undefined
+      const result: any = await databaseService.connect(testId, connectionString, dbType, sshTunnelConfig)
+      if (result.success) {
+        setTestResult({ success: true, message: 'Connection successful!' })
+      } else {
+        setTestResult({ success: false, message: `Connection failed: ${result.error || 'Unknown error'}` })
+      }
+    } catch (error) {
+      setTestResult({ success: false, message: `Connection failed: ${(error as Error).message}` })
+    } finally {
+      // Always try to clean up
+      try { await databaseService.disconnect(testId, dbType) } catch { /* ignore cleanup errors */ }
+      setTesting(false)
+    }
+  }, [buildConnectionString, dbType, ssh])
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onCancel}>
@@ -380,18 +450,38 @@ export const ConnectionForm = ({ onSubmit, onCancel, initialData }: ConnectionFo
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-3 border-t bg-muted/30">
-          <p className="text-[10px] text-muted-foreground">
-            {SUPPORTED_TYPES.has(dbType) ? '✓ Ready to connect' : '⏳ Coming soon'}
-          </p>
-          <div className="flex gap-2">
-            <button className={BTN_OUTLINE_CLS} onClick={onCancel}>Cancel</button>
-            {useConnStr ? (
-              <button className={BTN_PRIMARY_CLS} onClick={handleConnStrSubmit}>Save</button>
-            ) : (
-              <button type="submit" form="connection-form" className={BTN_PRIMARY_CLS}>Save</button>
-            )}
+        <div className="px-5 py-3 border-t bg-muted/30 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] text-muted-foreground">
+              {SUPPORTED_TYPES.has(dbType) ? '✓ Ready to connect' : '⏳ Coming soon'}
+            </p>
+            <div className="flex gap-2">
+              <button className={BTN_OUTLINE_CLS} onClick={onCancel}>Cancel</button>
+              <button
+                type="button"
+                className={BTN_OUTLINE_CLS}
+                onClick={handleTestConnection}
+                disabled={testing || !SUPPORTED_TYPES.has(dbType)}
+              >
+                {testing ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                ) : (
+                  <Zap className="h-3.5 w-3.5 mr-1.5" />
+                )}
+                {testing ? 'Testing...' : 'Test'}
+              </button>
+              {useConnStr ? (
+                <button className={BTN_PRIMARY_CLS} onClick={handleConnStrSubmit}>Save</button>
+              ) : (
+                <button type="submit" form="connection-form" className={BTN_PRIMARY_CLS}>Save</button>
+              )}
+            </div>
           </div>
+          {testResult && (
+            <p className={`text-[11px] text-right ${testResult.success ? 'text-green-500' : 'text-red-500'}`}>
+              {testResult.message}
+            </p>
+          )}
         </div>
       </div>
     </div>

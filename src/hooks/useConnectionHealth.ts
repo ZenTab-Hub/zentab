@@ -74,8 +74,8 @@ export const useConnectionHealth = () => {
     if (intervalRef.current) clearInterval(intervalRef.current)
 
     if (activeConnectionId) {
-      // Initial ping with small delay to let connection settle
-      const timeout = setTimeout(doPing, 500)
+      // Initial ping with delay to let connection settle and databases load first
+      const timeout = setTimeout(doPing, 2000)
       // Periodic ping
       intervalRef.current = setInterval(doPing, PING_INTERVAL)
       return () => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Key, RefreshCw, Trash2, Clock, Copy, Edit, Save, X, Plus, HardDrive, Timer, CopyPlus, Layers } from 'lucide-react'
 import { Input } from '@/components/common/Input'
 import { useConnectionStore } from '@/store/connectionStore'
@@ -52,6 +52,9 @@ export const RedisKeyViewer = () => {
   const [showStreamAdd, setShowStreamAdd] = useState(false)
   const [streamFields, setStreamFields] = useState<Array<{ key: string; value: string }>>([{ key: '', value: '' }])
 
+  // Race condition guard
+  const loadRequestRef = useRef(0)
+
   // Load key value when selection changes
   useEffect(() => {
     if (activeConnectionId && selectedDatabase && selectedCollection) {
@@ -63,9 +66,11 @@ export const RedisKeyViewer = () => {
 
   const loadKeyValue = async () => {
     if (!activeConnectionId || !selectedDatabase || !selectedCollection) return
+    const currentRequestId = ++loadRequestRef.current
     try {
       setLoading(true)
       const result = await databaseService.redisGetKeyValue(activeConnectionId, selectedDatabase, selectedCollection)
+      if (currentRequestId !== loadRequestRef.current) return
       if (result.success) {
         setKeyData(result)
         setEditing(false)
@@ -77,13 +82,15 @@ export const RedisKeyViewer = () => {
           databaseService.redisMemoryUsage(activeConnectionId, selectedDatabase, selectedCollection),
           databaseService.redisGetKeyEncoding(activeConnectionId, selectedDatabase, selectedCollection),
         ])
+        if (currentRequestId !== loadRequestRef.current) return
         setMemoryUsage(memResult.success ? memResult.bytes : null)
         setEncoding(encResult.success ? encResult.encoding : null)
       } catch { setMemoryUsage(null); setEncoding(null) }
-    } catch (error) {
-      console.error('Failed to load key value:', error)
+    } catch {
+      if (currentRequestId !== loadRequestRef.current) return
+      setKeyData(null)
     } finally {
-      setLoading(false)
+      if (currentRequestId === loadRequestRef.current) setLoading(false)
     }
   }
 

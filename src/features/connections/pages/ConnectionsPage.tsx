@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Download, Upload, Database } from 'lucide-react'
+import { Plus, Download, Upload, Database, Search } from 'lucide-react'
 import { ConnectionForm } from '../components/ConnectionForm'
 import { ConnectionList } from '../components/ConnectionList'
 import { useConnectionStore } from '@/store/connectionStore'
@@ -28,8 +28,8 @@ export const ConnectionsPage = () => {
     try {
       const savedConnections = await storageService.getConnections()
       setConnections(savedConnections)
-    } catch (error) {
-      console.error('Failed to load connections:', error)
+    } catch {
+      // connections will load on next mount
     }
   }
 
@@ -38,7 +38,7 @@ export const ConnectionsPage = () => {
       setLoading(true)
 
       const connection: DatabaseConnection = {
-        id: editingConnection?.id || Date.now().toString(),
+        id: editingConnection?.id || crypto.randomUUID(),
         name: data.name,
         type: data.type || 'mongodb',
         host: data.host || '',
@@ -62,8 +62,6 @@ export const ConnectionsPage = () => {
         updatedAt: new Date() as any,
       }
 
-      console.log('Saving connection:', connection)
-
       // Save to SQLite
       await storageService.saveConnection(connection)
 
@@ -77,7 +75,6 @@ export const ConnectionsPage = () => {
       setShowForm(false)
       setEditingConnection(null)
     } catch (error) {
-      console.error('Failed to save connection:', error)
       t.error('Failed to save connection: ' + (error as Error).message)
     } finally {
       setLoading(false)
@@ -142,10 +139,7 @@ export const ConnectionsPage = () => {
   const handleConnect = async (connection: DatabaseConnection) => {
     try {
       setLoading(true)
-      console.log('Connection object:', connection)
-
       const connectionString = buildConnectionString(connection)
-      console.log('Built connection string:', connectionString)
 
       const dbType = connection.type || 'mongodb'
 
@@ -155,17 +149,11 @@ export const ConnectionsPage = () => {
       if (result.success) {
         setActiveConnection(connection.id)
         t.success('Connected successfully!')
-
-        // Load databases
-        const dbResult: any = await databaseService.listDatabases(connection.id, dbType)
-        if (dbResult.success) {
-          console.log('Databases:', dbResult.databases)
-        }
+        // Sidebar will auto-load databases via useEffect on activeConnectionId change
       } else {
         t.error('Connection failed: ' + result.error)
       }
     } catch (error) {
-      console.error('Connection error:', error)
       t.error('Connection failed: ' + (error as Error).message)
     } finally {
       setLoading(false)
@@ -188,7 +176,6 @@ export const ConnectionsPage = () => {
         t.error('Disconnect failed: ' + (result?.error || 'Unknown error'))
       }
     } catch (error) {
-      console.error('Disconnect error:', error)
       t.error('Disconnect failed: ' + (error as Error).message)
     } finally {
       setLoading(false)
@@ -203,7 +190,7 @@ export const ConnectionsPage = () => {
   const handleClone = (connection: DatabaseConnection) => {
     const cloned: DatabaseConnection = {
       ...connection,
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       name: `${connection.name} (Copy)`,
       createdAt: new Date() as any,
       updatedAt: new Date() as any,
@@ -219,8 +206,7 @@ export const ConnectionsPage = () => {
         deleteConnection(connectionId)
         t.success('Connection deleted')
       } catch (error) {
-        console.error('Failed to delete connection:', error)
-        t.error('Failed to delete connection')
+        t.error('Failed to delete connection: ' + (error as Error).message)
       }
     })
   }
@@ -269,7 +255,7 @@ export const ConnectionsPage = () => {
         if (!conn.name || !conn.type) continue
         const newConn: DatabaseConnection = {
           ...conn,
-          id: Date.now().toString() + '-' + count,
+          id: crypto.randomUUID(),
           password: conn.password || '',
           createdAt: new Date() as any,
           updatedAt: new Date() as any,
@@ -284,19 +270,27 @@ export const ConnectionsPage = () => {
     }
   }
 
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const filteredConnections = searchQuery.trim()
+    ? connections.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) || (c.host || '').toLowerCase().includes(searchQuery.toLowerCase()) || (c.type || '').toLowerCase().includes(searchQuery.toLowerCase()))
+    : connections
+
   return (
     <div className="h-full flex flex-col">
       {/* Page Header */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-lg font-semibold">Connections</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Manage your database connections</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {connections.length} {connections.length === 1 ? 'connection' : 'connections'}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={handleImport}
             disabled={loading}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border hover:bg-accent transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border hover:bg-accent transition-all duration-150 disabled:opacity-50"
             title="Import connections from JSON"
           >
             <Upload className="h-3.5 w-3.5" />
@@ -305,7 +299,7 @@ export const ConnectionsPage = () => {
           <button
             onClick={handleExport}
             disabled={loading || connections.length === 0}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border hover:bg-accent transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border hover:bg-accent transition-all duration-150 disabled:opacity-50"
             title="Export connections to JSON"
           >
             <Download className="h-3.5 w-3.5" />
@@ -314,13 +308,32 @@ export const ConnectionsPage = () => {
           <button
             onClick={() => setShowForm(true)}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition-all duration-150 disabled:opacity-50 active:scale-[0.97]"
           >
             <Plus className="h-3.5 w-3.5" />
             New Connection
           </button>
         </div>
       </div>
+
+      {/* Search bar */}
+      {connections.length > 0 && (
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search connections by name, host, or type..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border bg-card focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-primary/50 transition-all placeholder:text-muted-foreground/50"
+          />
+          {searchQuery && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+              {filteredConnections.length} found
+            </span>
+          )}
+        </div>
+      )}
 
       {loading && (
         <CardGridSkeleton cards={3} className="mb-4" />
@@ -337,7 +350,7 @@ export const ConnectionsPage = () => {
         </div>
       ) : (
         <ConnectionList
-          connections={connections}
+          connections={filteredConnections}
           onConnect={handleConnect}
           onDisconnect={handleDisconnect}
           onEdit={handleEdit}

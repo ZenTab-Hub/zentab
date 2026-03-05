@@ -46,7 +46,6 @@ export const KafkaMessageViewer = () => {
         setMessages(result.documents || [])
       }
     } catch (error: any) {
-      console.error('Failed to consume messages:', error)
       tt.error('Failed to consume: ' + error.message)
     } finally {
       setLoading(false)

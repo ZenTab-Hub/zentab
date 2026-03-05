@@ -225,7 +225,7 @@ const RolesTab = ({ connectionId, toast }: TabProps) => {
                     {r.rolreplication && <BoolBadge value={true} label="REPLICATION" />}
                   </div>
                 </td>
-                <td className="py-1.5 px-2 text-muted-foreground">{r.member_of?.length > 0 ? r.member_of.join(', ') : '—'}</td>
+                <td className="py-1.5 px-2 text-muted-foreground">{Array.isArray(r.member_of) && r.member_of.length > 0 ? r.member_of.join(', ') : typeof r.member_of === 'string' && r.member_of ? r.member_of : '—'}</td>
                 <td className="py-1.5 px-2">{r.rolconnlimit === -1 ? 'unlimited' : r.rolconnlimit}</td>
               </tr>
             ))}
